@@ -2,8 +2,19 @@ package org.sillylabs;
 
 
 public class Rook extends ChessPiece {
+    private boolean hasMoved;
+
     public Rook(String color, int x, int y) {
         super("Rook", color, x, y);
+        this.hasMoved = false;
+    }
+
+    public boolean getHasMoved() {
+        return hasMoved;
+    }
+
+    public void setHasMoved(boolean hasMoved) {
+        this.hasMoved = hasMoved;
     }
 
     @Override

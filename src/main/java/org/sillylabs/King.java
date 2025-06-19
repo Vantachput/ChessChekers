@@ -1,47 +1,59 @@
+
 package org.sillylabs;
 
 
 public class King extends ChessPiece {
+    private boolean hasMoved;
+
     public King(String color, int x, int y) {
         super("King", color, x, y);
+        this.hasMoved = false;
+    }
+
+    public boolean getHasMoved() {
+        return hasMoved;
+    }
+
+    public void setHasMoved(boolean hasMoved) {
+        this.hasMoved = hasMoved;
     }
 
     @Override
     public boolean isValidMove(int toX, int toY, Piece[][] grid) {
         int dx = Math.abs(toX - x);
         int dy = Math.abs(toY - y);
-        return dx <= 1 && dy <= 1 && (grid[toX][toY] == null || !grid[toX][toY].getColor().equals(color));
-    }
 
-    public boolean isInCheckmate(Piece[][] grid) {
-        // Simplified: check if king is in check and no moves escape
-        if (!isInCheck(grid)) return false;
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                int newX = x + dx, newY = y + dy;
-                if (isWithinBoard(newX, newY) && isValidMove(newX, newY, grid)) {
-                    Piece temp = grid[newX][newY];
-                    grid[newX][newY] = this;
-                    grid[x][y] = null;
-                    boolean safe = !isInCheck(grid);
-                    grid[x][y] = this;
-                    grid[newX][newY] = temp;
-                    if (safe) return false;
-                }
+        // Обычный ход короля (на одну клетку в любом направлении)
+        if (dx <= 1 && dy <= 1) {
+            return grid[toX][toY] == null || !grid[toX][toY].getColor().equals(color);
+        }
+
+        // Рокировка (король движется на две клетки по горизонтали)
+        if (!hasMoved && dx == 0 && Math.abs(dy) == 2) {
+            // Проверяем, что это горизонтальное перемещение на два поля
+            // Король может быть на позиции 3 или 4, в зависимости от начальной расстановки
+            if ((y == 3 && (toY == 1 || toY == 5)) || (y == 4 && (toY == 2 || toY == 6))) {
+                return true; // Дополнительные проверки будут в Board.isValidMove
             }
         }
-        return true;
+
+        return false;
     }
 
-    private boolean isInCheck(Piece[][] grid) {
+    public boolean isInCheck(Piece[][] grid) {
+        // Проверяем все клетки на доске
         for (int i = 0; i < 8; i++) {
             for (int j = 0; j < 8; j++) {
                 Piece piece = grid[i][j];
+                // Если на клетке есть фигура, и она принадлежит противнику
                 if (piece != null && !piece.getColor().equals(color)) {
-                    if (piece.isValidMove(x, y, grid)) return true;
+                    // И эта фигура может походить на клетку, где находится король
+                    if (piece.isValidMove(x, y, grid)) {
+                        return true; // Король в шахе
+                    }
                 }
             }
         }
-        return false;
+        return false; // Король не в шахе
     }
 }
