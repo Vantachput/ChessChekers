@@ -111,7 +111,7 @@ public class GameGUI {
         ));
 
         ComboBox<String> modeSelector = new ComboBox<>();
-        modeSelector.getItems().addAll("Chess", "Checkers", "Hybrid", "Unified");
+        modeSelector.getItems().addAll("Chess", "Checkers"); // "Hybrid", "Unified"
         modeSelector.setValue("Chess");
         modeSelector.styleProperty().bind(Bindings.createStringBinding(
                 () -> "-fx-font-size: " + Math.max(12, padding.get() * 1.4) + "px;",
@@ -279,7 +279,13 @@ public class GameGUI {
                 ),
                 squareSize
         ));
-        resignButton.setOnAction(e -> primaryStage.close());
+        resignButton.setOnAction(e -> {
+            // Возвращаемся в главное меню
+            gameOver = true;
+            selectedX = -1;
+            selectedY = -1;
+            setupGUI(); // Пересоздаём главное меню
+        });
         GridPane.setColumnSpan(resignButton, 8);
         boardPane.add(resignButton, 0, 9);
     }
@@ -354,7 +360,7 @@ public class GameGUI {
                 boolean isCapture = false;
 
                 if (selectedX != -1 && selectedY != -1 && !isSelected) {
-                    if (game.getBoard().isValidMove(selectedX, selectedY, x, y, game.isWhiteTurn(), game.getGameMode())) {
+                    if (game.getBoard().isValidMove(selectedX, selectedY, x, y, game.isWhiteTurn(), game.getGameMode(), game.isMultiJump())) {
                         if (piece != null) {
                             isCapture = true;
                         } else {

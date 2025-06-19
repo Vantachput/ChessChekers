@@ -1,5 +1,8 @@
 package org.sillylabs;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Board {
     private Piece[][] grid;
     private Game game;
@@ -33,7 +36,7 @@ public class Board {
         grid[0][6] = new Knight("White", 0, 6);
         grid[0][7] = new Rook("White", 0, 7);
         for (int i = 0; i < 8; i++) {
-            grid[1][i] = new Pawn("White", 1, i);
+            grid[1][i] = new Pawn("White", 1, i, game);
         }
         grid[7][0] = new Rook("Black", 7, 0);
         grid[7][1] = new Knight("Black", 7, 1);
@@ -44,7 +47,7 @@ public class Board {
         grid[7][6] = new Knight("Black", 7, 6);
         grid[7][7] = new Rook("Black", 7, 7);
         for (int i = 0; i < 8; i++) {
-            grid[6][i] = new Pawn("Black", 6, i);
+            grid[6][i] = new Pawn("Black", 6, i, game);
         }
     }
 
@@ -69,24 +72,24 @@ public class Board {
         grid[0][0] = new Rook("White", 0, 0);
         grid[0][1] = new Knight("White", 0, 1);
         grid[0][2] = new Bishop("White", 0, 2);
-        grid[0][3] = new Queen("White", 0, 4);
-        grid[0][4] = new King("White", 0, 3);
+        grid[0][3] = new Queen("White", 0, 3);
+        grid[0][4] = new King("White", 0, 4);
         grid[0][5] = new Bishop("White", 0, 5);
         grid[0][6] = new Knight("White", 0, 6);
         grid[0][7] = new Rook("White", 0, 7);
         for (int i = 0; i < 8; i++) {
-            grid[1][i] = new Pawn("White", 1, i);
+            grid[1][i] = new Pawn("White", 1, i, game);
         }
         grid[7][0] = new Rook("Black", 7, 0);
         grid[7][1] = new Knight("Black", 7, 1);
         grid[7][2] = new Bishop("Black", 7, 2);
-        grid[7][3] = new Queen("Black", 7, 4);
-        grid[7][4] = new King("Black", 7, 3);
+        grid[7][3] = new Queen("Black", 7, 3);
+        grid[7][4] = new King("Black", 7, 4);
         grid[7][5] = new Bishop("Black", 7, 5);
         grid[7][6] = new Knight("Black", 7, 6);
         grid[7][7] = new Rook("Black", 7, 7);
         for (int i = 0; i < 8; i++) {
-            grid[6][i] = new Pawn("Black", 6, i);
+            grid[6][i] = new Pawn("Black", 6, i, game);
         }
         for (int y = 2; y < 4; y++) {
             for (int x = 0; x < 8; x++) {
@@ -139,7 +142,23 @@ public class Board {
         return false;
     }
 
-    public boolean isValidMove(int fromX, int fromY, int toX, int toY, boolean isWhiteTurn, String gameMode) {
+    public boolean hasAvailableCaptures(boolean isWhiteTurn, String gameMode) {
+        String color = isWhiteTurn ? "White" : "Black";
+        for (int x = 0; x < 8; x++) {
+            for (int y = 0; y < 8; y++) {
+                Piece piece = grid[x][y];
+                if (piece != null && piece.getColor().equals(color) && piece instanceof CheckersPiece) {
+                    List<int[]> captureMoves = ((CheckersPiece) piece).getCaptureMoves(x, y, grid, gameMode);
+                    if (!captureMoves.isEmpty()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isValidMove(int fromX, int fromY, int toX, int toY, boolean isWhiteTurn, String gameMode, boolean isMultiJump) {
         System.out.println("Validating move: from (" + fromX + ", " + fromY + ") to (" + toX + ", " + toY + ")");
         Piece pieceToMove = grid[fromX][fromY];
         if (pieceToMove == null) {
@@ -155,18 +174,21 @@ public class Board {
             System.out.println("Invalid: Cannot capture the King directly.");
             return false;
         }
-
+        if (pieceToMove instanceof CheckersPiece) {
+            CheckersPiece checkersPiece = (CheckersPiece) pieceToMove;
+            System.out.println("Checking CheckersPiece move with multiJump: " + isMultiJump);
+            return checkersPiece.isValidMoveWithMultiJump(toX, toY, grid, isMultiJump);
+        }
         if (pieceToMove instanceof King && (gameMode.equals("Chess") || gameMode.equals("Hybrid") || gameMode.equals("Unified"))) {
             King king = (King) pieceToMove;
             if (!king.getHasMoved() && fromX == toX) {
                 // Короткая рокировка (в сторону h-файла)
                 if ((fromY == 3 && toY == 5) || (fromY == 4 && toY == 6)) {
-                    int rookY = fromY == 3 ? 7 : 7; // Ладья всегда на h-файле (индекс 7)
+                    int rookY = 7; // Ладья на h-файле
                     Piece rookPiece = grid[fromX][rookY];
                     if (rookPiece instanceof Rook) {
                         Rook kingsideRook = (Rook) rookPiece;
                         if (!kingsideRook.getHasMoved() && kingsideRook.getColor().equals(king.getColor())) {
-                            // Проверяем, что клетки между королем и ладьей пусты
                             boolean pathClear = true;
                             for (int y = fromY + 1; y < rookY; y++) {
                                 if (grid[fromX][y] != null) {
@@ -177,7 +199,6 @@ public class Board {
 
                             if (pathClear) {
                                 if (!isKingInCheck(king.getColor())) {
-                                    // Проверяем, что клетки, через которые проходит король, не атакованы
                                     boolean squaresSafe = true;
                                     for (int y = fromY; y <= toY; y++) {
                                         if (isSquareAttacked(fromX, y, king.getColor())) {
@@ -212,12 +233,11 @@ public class Board {
                 }
                 // Длинная рокировка (в сторону a-файла)
                 else if ((fromY == 3 && toY == 1) || (fromY == 4 && toY == 2)) {
-                    int rookY = 0; // Ладья всегда на a-файле (индекс 0)
+                    int rookY = 0; // Ладья на a-файле
                     Piece rookPiece = grid[fromX][rookY];
                     if (rookPiece instanceof Rook) {
                         Rook queensideRook = (Rook) rookPiece;
                         if (!queensideRook.getHasMoved() && queensideRook.getColor().equals(king.getColor())) {
-                            // Проверяем, что клетки между королем и ладьей пусты
                             boolean pathClear = true;
                             for (int y = rookY + 1; y < fromY; y++) {
                                 if (grid[fromX][y] != null) {
@@ -228,7 +248,6 @@ public class Board {
 
                             if (pathClear) {
                                 if (!isKingInCheck(king.getColor())) {
-                                    // Проверяем, что клетки, через которые проходит король, не атакованы
                                     boolean squaresSafe = true;
                                     for (int y = toY; y <= fromY; y++) {
                                         if (isSquareAttacked(fromX, y, king.getColor())) {
@@ -262,9 +281,18 @@ public class Board {
                     }
                 }
             }
+
         }
 
-        // Остальной код без изменений
+        if (gameMode.equals("Checkers") && pieceToMove instanceof CheckersPiece && !isMultiJump) {
+            boolean hasCaptures = hasAvailableCaptures(isWhiteTurn, gameMode);
+            boolean isCaptureMove = Math.abs(toX - fromX) >= 2 && Math.abs(toY - fromY) >= 2;
+            if (hasCaptures && !isCaptureMove) {
+                System.out.println("Invalid: Must capture when possible");
+                return false;
+            }
+        }
+
         boolean isValid = pieceToMove.isValidMove(toX, toY, grid);
         if (!isValid) {
             System.out.println("Invalid: Piece move invalid for " + pieceToMove.getType());
@@ -284,6 +312,7 @@ public class Board {
         int originalPieceX = pieceToMove.getX();
         int originalPieceY = pieceToMove.getY();
 
+        // Simulate move
         grid[toX][toY] = pieceToMove;
         grid[fromX][fromY] = null;
         pieceToMove.setPosition(toX, toY);
@@ -305,6 +334,7 @@ public class Board {
             kingInCheckAfterMove = currentPlayerKing.isInCheck(grid);
         }
 
+        // Undo move
         pieceToMove.setPosition(originalPieceX, originalPieceY);
         grid[fromX][fromY] = pieceToMove;
         grid[toX][toY] = tempTarget;
@@ -313,59 +343,64 @@ public class Board {
             System.out.println("Invalid: Move would put or leave King in check.");
             return false;
         }
+
         System.out.println("Move valid");
         return true;
     }
 
-
-    public void movePiece(int fromX, int fromY, int toX, int toY) {
+    public void movePiece(int fromX, int fromY, int toX, int toY, boolean isMultiJump, int capturedPawnX, int capturedPawnY) {
         Piece piece = grid[fromX][fromY];
+        System.out.println("Moving piece: " + piece.getType() + " from (" + fromX + ", " + fromY + ") to (" + toX + ", " + toY + ")");
+
+        // Handle en passant capture
+        if (capturedPawnX != -1 && capturedPawnY != -1) {
+            System.out.println("Before en passant capture: grid[" + capturedPawnX + "][" + capturedPawnY + "] = " +
+                    (grid[capturedPawnX][capturedPawnY] != null ? grid[capturedPawnX][capturedPawnY].getType() : "null"));
+            grid[capturedPawnX][capturedPawnY] = null;
+            System.out.println(piece.getColor() + " Pawn captures en passant at (" + capturedPawnX + ", " + capturedPawnY + ")");
+            System.out.println("After en passant capture: grid[" + capturedPawnX + "][" + capturedPawnY + "] = " +
+                    (grid[capturedPawnX][capturedPawnY] != null ? grid[capturedPawnX][capturedPawnY].getType() : "null"));
+        }
 
         // Handle checkers capture
-        if (piece instanceof CheckersPiece && Math.abs(toX - fromX) == 2 && Math.abs(toY - fromY) == 2) {
-            int midX = (fromX + toX) / 2;
-            int midY = (fromY + toY) / 2;
-            if (grid[midX][midY] != null) {
-                System.out.println(piece.getColor() + " CheckersMan captures " + grid[midX][midY].getColor() + " piece at (" + midX + ", " + midY + ")");
-                grid[midX][midY] = null; // Remove captured piece
+        if (piece instanceof CheckersPiece && Math.abs(toX - fromX) >= 2 && Math.abs(toY - fromY) >= 2) {
+            int dx = (toX - fromX) > 0 ? 1 : -1;
+            int dy = (toY - fromY) > 0 ? 1 : -1;
+            int steps = Math.abs(toX - fromX);
+            for (int i = 1; i < steps; i++) {
+                int midX = fromX + i * dx;
+                int midY = fromY + i * dy;
+                if (grid[midX][midY] != null && !grid[midX][midY].getColor().equals(piece.getColor())) {
+                    System.out.println(piece.getColor() + " CheckersMan captures " + grid[midX][midY].getColor() + " piece at (" + midX + ", " + midY + ")");
+                    grid[midX][midY] = null;
+                }
             }
         }
 
         // Handle castling
-        if (piece instanceof King && !((King)piece).getHasMoved() && fromX == toX) {
-            // Короткая рокировка (король движется вправо)
+        if (piece instanceof King && !((King) piece).getHasMoved() && fromX == toX) {
             if ((fromY == 3 && toY == 5) || (fromY == 4 && toY == 6)) {
                 grid[toX][toY] = piece;
                 grid[fromX][fromY] = null;
                 piece.setPosition(toX, toY);
-
-                // Ладья справа (на h-файле, индекс 7)
                 Rook kingsideRook = (Rook) grid[fromX][7];
-                // Переместить ладью на позицию рядом с королем слева
                 int rookNewY = fromY == 3 ? 4 : 5;
                 grid[toX][rookNewY] = kingsideRook;
                 grid[fromX][7] = null;
                 kingsideRook.setPosition(toX, rookNewY);
-
                 ((King) piece).setHasMoved(true);
                 kingsideRook.setHasMoved(true);
                 System.out.println("Выполнена короткая рокировка (королевский фланг).");
                 return;
-            }
-            // Длинная рокировка (король движется влево)
-            else if ((fromY == 3 && toY == 1) || (fromY == 4 && toY == 2)) {
+            } else if ((fromY == 3 && toY == 1) || (fromY == 4 && toY == 2)) {
                 grid[toX][toY] = piece;
                 grid[fromX][fromY] = null;
                 piece.setPosition(toX, toY);
-
-                // Ладья слева (на a-файле, индекс 0)
                 Rook queensideRook = (Rook) grid[fromX][0];
-                // Переместить ладью на позицию рядом с королем справа
                 int rookNewY = fromY == 3 ? 2 : 3;
                 grid[toX][rookNewY] = queensideRook;
                 grid[fromX][0] = null;
                 queensideRook.setPosition(toX, rookNewY);
-
                 ((King) piece).setHasMoved(true);
                 queensideRook.setHasMoved(true);
                 System.out.println("Выполнена длинная рокировка (ферзевый фланг).");
@@ -373,7 +408,7 @@ public class Board {
             }
         }
 
-        // Остальной код без изменений
+        // Generic move or capture
         if (grid[toX][toY] != null) {
             System.out.println(piece.getColor() + " " + piece.getType() + " captures " + grid[toX][toY].getColor() + " " + grid[toX][toY].getType());
         }
@@ -402,13 +437,6 @@ public class Board {
             ((King) piece).setHasMoved(true);
         } else if (piece instanceof Rook) {
             ((Rook) piece).setHasMoved(true);
-        }
-
-        // Handle checkers promotion to king
-        if (piece instanceof CheckersPiece) {
-            if ((piece.getColor().equals("White") && toX == 0) || (piece.getColor().equals("Black") && toX == 7)) {
-                ((CheckersPiece) piece).setKing(true);
-            }
         }
     }
 
@@ -456,7 +484,7 @@ public class Board {
                 if (piece != null && piece.getColor().equals(color)) {
                     for (int toX = 0; toX < 8; toX++) {
                         for (int toY = 0; toY < 8; toY++) {
-                            if (isValidMove(fromX, fromY, toX, toY, isWhiteTurn, gameMode)) {
+                            if (isValidMove(fromX, fromY, toX, toY, isWhiteTurn, gameMode, false)) {
                                 return false;
                             }
                         }
@@ -470,5 +498,9 @@ public class Board {
     private String getPieceTextStyle(String pieceColor) {
         return "-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: " +
                 (pieceColor.equals("White") ? "white" : "black") + "; -fx-alignment: center;";
+    }
+
+    public Piece[][] getGrid() {
+        return grid;
     }
 }
