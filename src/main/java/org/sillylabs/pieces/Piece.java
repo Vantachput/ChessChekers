@@ -34,7 +34,7 @@ public abstract class Piece {
         this.column = column;
     }
 
-    public abstract boolean isValidMove(int toRow, int toColumn, Piece[][] board);
+    public abstract boolean isValidMove(int toRow, int toColumn, MoveContext context);
 
     protected boolean isWithinBoard(int row, int column) {
         return row >= 0 && row < 8 && column >= 0 && column < 8;

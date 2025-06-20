@@ -6,7 +6,8 @@ public class Knight extends ChessPiece {
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         int dRow = Math.abs(toRow - row);
         int dColumn = Math.abs(toColumn - column);
         boolean isLShape = (dRow == 2 && dColumn == 1) || (dRow == 1 && dColumn == 2);

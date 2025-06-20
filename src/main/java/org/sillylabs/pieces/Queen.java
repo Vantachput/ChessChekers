@@ -6,7 +6,8 @@ public class Queen extends ChessPiece {
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         if (toRow == row || toColumn == column) {
             int start = toRow == row ? Math.min(column, toColumn) : Math.min(row, toRow);
             int end = toRow == row ? Math.max(column, toColumn) : Math.max(row, toRow);

@@ -17,7 +17,8 @@ public class King extends ChessPiece {
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         int dRow = Math.abs(toRow - row);
         int dColumn = Math.abs(toColumn - column);
 
@@ -37,7 +38,8 @@ public class King extends ChessPiece {
             for (int j = 0; j < 8; j++) {
                 Piece piece = grid[i][j];
                 if (piece != null && piece.getColor() != color) {
-                    if (piece.isValidMove(row, column, grid)) {
+                    MoveContext context = new MoveContext(grid, -1, -1, false); // En passant not needed for check
+                    if (piece.isValidMove(row, column, context)) {
                         return true;
                     }
                 }

@@ -21,13 +21,14 @@ import javafx.stage.Stage;
 import org.sillylabs.*;
 import org.sillylabs.pieces.CheckersPiece;
 import org.sillylabs.pieces.Color;
-import org.sillylabs.pieces.Pawn;
 import org.sillylabs.pieces.Piece;
+import org.sillylabs.pieces.MoveContext;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class GameGUI {
+public class GameGUI implements GameObserver {
     private final Game game;
     private final Stage primaryStage;
     private GridPane boardPane;
@@ -80,7 +81,7 @@ public class GameGUI {
     public GameGUI(Game game, Stage primaryStage) {
         this.game = game;
         this.primaryStage = primaryStage;
-        game.setGUI(this);
+        game.addObserver(this);
         primaryStage.setWidth(800);
         primaryStage.setHeight(600);
         setupGUI();
@@ -137,11 +138,7 @@ public class GameGUI {
             gameOver = false;
             setupBoard();
             game.start(modeSelector.getValue());
-            primaryStage.setScene(scene);
-            updateTurnLabel();
-            statusLabel.setText("");
-            whiteMovesArea.setText("");
-            blackMovesArea.setText("");
+            primaryStage.setScene(scene); // Fix: Transition to game board scene
         });
 
         Label instruction = new Label("Выберите режим игры и нажмите 'Начать игру'");
@@ -247,8 +244,8 @@ public class GameGUI {
                 },
                 scene.widthProperty(), scene.heightProperty()
         );
-        boardPane.hgapProperty().bind(squareSize.divide(40));
-        boardPane.vgapProperty().bind(squareSize.divide(40));
+        boardPane.hgapProperty().bind(squareSize.divide(10));
+        boardPane.vgapProperty().bind(squareSize.divide(10));
         boardPane.paddingProperty().bind(Bindings.createObjectBinding(
                 () -> new Insets(squareSize.get() / 10),
                 squareSize
@@ -275,8 +272,8 @@ public class GameGUI {
                         "-fx-font-size: %.1fpx; -fx-background-color: #E74C3C; -fx-text-fill: white; " +
                                 "-fx-background-radius: 5px; -fx-padding: %.1fpx %.1fpx;",
                         Math.max(10, squareSize.get() / 5),
-                        Math.max(2, squareSize.get() / 10),
-                        Math.max(4, squareSize.get() / 5)
+                        Math.max(2, squareSize.get() / 5),
+                        Math.max(4, squareSize.get() / 2)
                 ),
                 squareSize
         ));
@@ -285,7 +282,7 @@ public class GameGUI {
             selectedRow = -1;
             selectedColumn = -1;
             setupGUI();
-            setStatusMessage((game.isWhiteTurn() ? Color.BLACK : Color.WHITE) + " победили по сдаче!");
+            onStatusUpdate((game.isWhiteTurn() ? Color.BLACK : Color.WHITE) + " wins by resignation!");
         });
         GridPane.setColumnSpan(resignButton, 8);
         boardPane.add(resignButton, 0, 9);
@@ -324,82 +321,154 @@ public class GameGUI {
 
         Piece piece = game.getBoard().getPiece(row, column);
 
-        if (selectedRow == -1) {
-            // No piece selected yet, select a piece of the current player's color
-            if (piece != null && piece.getColor() == (game.isWhiteTurn() ? Color.WHITE : Color.BLACK)) {
-                selectedRow = row;
-                selectedColumn = column;
-                updateDisplay();
+        if (selectedRow == -1 && piece != null && piece.getColor() == (game.isWhiteTurn() ? Color.WHITE : Color.BLACK)) {
+            if (game.isMultiJump() && (row != game.getMultiJumpFromRow() || column != game.getMultiJumpFromColumn())) {
+                onStatusUpdate("Complete the multi-jump capture!");
+                return;
             }
-        } else {
-            // A piece is already selected
-            if (piece != null && piece.getColor() == (game.isWhiteTurn() ? Color.WHITE : Color.BLACK)) {
-                // Clicked another piece of the same color, reselect it
-                selectedRow = row;
-                selectedColumn = column;
-                updateDisplay();
+            selectedRow = row;
+            selectedColumn = column;
+            updateBoardDisplay();
+            highlightPossibleMoves(row, column);
+        } else if (selectedRow != -1) {
+            if (row == selectedRow && column == selectedColumn && game.isMultiJump()) {
+                game.makeMove(selectedRow, selectedColumn, row, column);
+                selectedRow = -1;
+                selectedColumn = -1;
+                updateBoardDisplay();
             } else {
-                // Attempt to move or end multi-jump
-                if (row == selectedRow && column == selectedColumn && game.isMultiJump()) {
-                    game.makeMove(row, column, row, column);
+                boolean moveMade = game.makeMove(selectedRow, selectedColumn, row, column);
+                if (moveMade && !game.isWaitingForPromotion()) {
                     selectedRow = -1;
                     selectedColumn = -1;
+                    updateBoardDisplay();
+                    updateTurnLabel();
+                    updateMoveHistory();
+                } else if (moveMade && game.isMultiJump()) {
+                    selectedRow = row;
+                    selectedColumn = column;
+                    updateBoardDisplay();
+                    highlightPossibleMoves(row, column);
                 } else {
-                    boolean moveMade = game.makeMove(selectedRow, selectedColumn, row, column);
-                    if (moveMade && !game.isWaitingForPromotion()) {
-                        selectedRow = -1;
-                        selectedColumn = -1;
-                        if (game.isMultiJump()) {
-                            selectedRow = row;
-                            selectedColumn = column;
-                        }
-                    }
+                    selectedRow = -1;
+                    selectedColumn = -1;
+                    updateBoardDisplay();
                 }
-                updateDisplay();
             }
         }
     }
 
-    public void updateDisplay() {
-        Piece[][] grid = game.getGrid();
-        boolean isMultiJump = game.isMultiJump();
-        int multiJumpRow = -1, multiJumpColumn = -1;
-        if (isMultiJump) {
-            multiJumpRow = selectedRow;
-            multiJumpColumn = selectedColumn;
-        }
+    private void highlightPossibleMoves(int fromRow, int fromColumn) {
+        Piece piece = game.getBoard().getPiece(fromRow, fromColumn);
+        if (piece == null) return;
 
         for (int row = 0; row < 8; row++) {
             for (int column = 0; column < 8; column++) {
-                Button square = (Button) boardPane.getChildren().get(row * 8 + column);
-                Piece piece = grid[row][column];
-                boolean isSelected = (row == selectedRow && column == selectedColumn);
-                boolean isPossibleMove = false;
-                boolean isCaptureMove = false;
+                Button square = getSquareButton(row, column);
+                if (square == null) continue;
 
-                if (selectedRow != -1 && !game.isWaitingForPromotion()) {
-                    Piece selectedPiece = grid[selectedRow][selectedColumn];
-                    if (selectedPiece != null) {
-                        boolean isValidMove = game.getBoard().isValidMove(selectedRow, selectedColumn, row, column,
-                                game.isWhiteTurn(), game.getGameMode(), isMultiJump);
-                        if (isValidMove) {
-                            isPossibleMove = true;
-                            if ((selectedPiece instanceof CheckersPiece && Math.abs(row - selectedRow) >= 2 && Math.abs(column - selectedColumn) >= 2) ||
-                                    grid[row][column] != null ||
-                                    (selectedPiece instanceof Pawn && Math.abs(column - selectedColumn) == 1 &&
-                                            row == game.getEnPassantTargetRow() && column == game.getEnPassantTargetColumn() &&
-                                            game.isEnPassantPossible())) {
-                                isCaptureMove = true;
+                if (game.getBoard().isValidMove(fromRow, fromColumn, row, column, game.isWhiteTurn(), game.getGameMode(), game.isMultiJump())) {
+                    boolean isCapture = false;
+                    if (piece instanceof CheckersPiece checkersPiece) {
+                        List<int[]> captureMoves = checkersPiece.getCaptureMoves(fromRow, fromColumn, game.getGrid(), game.getGameMode());
+                        for (int[] move : captureMoves) {
+                            if (move[0] == row && move[1] == column) {
+                                isCapture = true;
+                                break;
                             }
                         }
+                    } else if (piece instanceof org.sillylabs.pieces.Pawn &&
+                            Math.abs(column - fromColumn) == 1 &&
+                            game.getGrid()[row][column] == null &&
+                            row == game.getEnPassantTargetRow() &&
+                            column == game.getEnPassantTargetColumn() &&
+                            game.isEnPassantPossible()) {
+                        isCapture = true;
+                    } else if (game.getGrid()[row][column] != null &&
+                            game.getGrid()[row][column].getColor() != piece.getColor()) {
+                        isCapture = true;
                     }
+
+                    square.setStyle(getSquareStyle(row, column, isCapture ? CAPTURE_MOVE : POSSIBLE_MOVE));
                 }
+            }
+        }
+    }
 
-                square.setStyle(getSquareBackgroundStyle(row, column, isSelected, isPossibleMove, isCaptureMove));
+    private Button getSquareButton(int row, int column) {
+        for (var node : boardPane.getChildren()) {
+            if (GridPane.getRowIndex(node) == row && GridPane.getColumnIndex(node) == column && node instanceof Button) {
+                return (Button) node;
+            }
+        }
+        return null;
+    }
 
+    private String getSquareStyle(int row, int column, String highlightColor) {
+        String baseColor = (row + column) % 2 == 0 ? LIGHT_SQUARE : DARK_SQUARE;
+        if (row == selectedRow && column == selectedColumn) {
+            return "-fx-background-color: " + SELECTED_SQUARE + ";";
+        }
+        return "-fx-background-color: " + (highlightColor != null ? highlightColor : baseColor) + ";";
+    }
+
+    @Override
+    public void onBoardChanged() {
+        updateBoardDisplay();
+        updateMoveHistory();
+        updateTurnLabel();
+    }
+
+    @Override
+    public void onStatusUpdate(String message) {
+        statusLabel.setText(message);
+    }
+
+    @Override
+    public void onPromotionRequested(int row, int column, Color color) {
+        showPromotionDialog(row, column, color);
+    }
+
+    @Override
+    public void onGameOver(boolean isGameOver, Color winner) {
+        this.gameOver = isGameOver;
+        if (isGameOver) {
+            statusLabel.setText("Game Over! " + winner + " wins!");
+        }
+    }
+
+    private void updateBoardDisplay() {
+        Piece[][] grid = game.getGrid();
+
+        for (int row = 0; row < 8; row++) {
+            for (int column = 0; column < 8; column++) {
+                Button square = getSquareButton(row, column);
+                if (square == null) continue;
+
+                Piece piece = grid[row][column];
                 square.setGraphic(null);
+                square.setText("");
+
                 if (piece != null) {
-                    String imageKey = getImageKey(piece);
+                    String imageKey;
+                    if (piece instanceof CheckersPiece checkersPiece) {
+                        String colorPrefix = piece.getColor() == Color.WHITE ? "w" : "b";
+                        String typeSuffix = checkersPiece.isKing() ? "w" : "m";
+                        imageKey = colorPrefix + typeSuffix + ".png";
+                    } else {
+                        String colorPrefix = piece.getColor() == Color.WHITE ? "w" : "b";
+                        String typeKey = switch (piece.getType().toLowerCase()) {
+                            case "king" -> "k";
+                            case "queen" -> "q";
+                            case "rook" -> "r";
+                            case "bishop" -> "b";
+                            case "knight" -> "n";
+                            case "pawn" -> "p";
+                            default -> "";
+                        };
+                        imageKey = colorPrefix + typeKey + ".png";
+                    }
+
                     Image image = pieceImageCache.get(imageKey);
                     if (image != null) {
                         ImageView imageView = new ImageView(image);
@@ -408,126 +477,86 @@ public class GameGUI {
                         imageView.setPreserveRatio(true);
                         square.setGraphic(imageView);
                     } else {
-                        System.out.println("Image not found for key: " + imageKey);
+                        String symbol = getPieceSymbol(piece);
+                        square.setText(symbol);
+                        square.setStyle(getSquareStyle(row, column, null) + getPieceTextStyle(piece.getColor()));
                     }
                 }
+                square.setStyle(getSquareStyle(row, column, null));
             }
         }
-
-        updateTurnLabel();
-        updateMoveHistory();
     }
 
-    private String getSquareBackgroundStyle(int row, int column, boolean isSelected, boolean isPossibleMove, boolean isCapture) {
-        String baseColor;
-        if (isSelected) {
-            baseColor = SELECTED_SQUARE;
-        } else if (isCapture) {
-            baseColor = CAPTURE_MOVE;
-        } else if (isPossibleMove) {
-            baseColor = POSSIBLE_MOVE;
-        } else {
-            baseColor = (row + column) % 2 == 0 ? LIGHT_SQUARE : DARK_SQUARE;
-        }
-        return String.format("-fx-background-color: %s;", baseColor);
-    }
-
-    private String getImageKey(Piece piece) {
-        String colorPrefix = piece.getColor() == Color.WHITE ? "w" : "b";
-        String type = piece.getType().toLowerCase();
+    private String getPieceSymbol(Piece piece) {
         if (piece instanceof CheckersPiece checkersPiece) {
-            if (checkersPiece.isKing()) {
-                return colorPrefix + "w.png";
-            } else {
-                return colorPrefix + "m.png";
-            }
+            return checkersPiece.isKing() ? "⛁" : "⛂";
         }
-        return switch (type) {
-            case "king" -> colorPrefix + "k.png";
-            case "queen" -> colorPrefix + "q.png";
-            case "rook" -> colorPrefix + "r.png";
-            case "bishop" -> colorPrefix + "b.png";
-            case "knight" -> colorPrefix + "n.png";
-            case "pawn" -> colorPrefix + "p.png";
-            default -> colorPrefix + "p.png";
+        return switch (piece.getType()) {
+            case "King" -> piece.getColor() == Color.WHITE ? "♔" : "♚";
+            case "Queen" -> piece.getColor() == Color.WHITE ? "♕" : "♛";
+            case "Rook" -> piece.getColor() == Color.WHITE ? "♖" : "♜";
+            case "Bishop" -> piece.getColor() == Color.WHITE ? "♗" : "♝";
+            case "Knight" -> piece.getColor() == Color.WHITE ? "♘" : "♞";
+            case "Pawn" -> piece.getColor() == Color.WHITE ? "♙" : "♟";
+            default -> "";
         };
     }
 
-    private void updateTurnLabel() {
-        String turnText = game.isWhiteTurn() ? "Ход Белых" : "Ход Чёрных";
-        turnLabel.setText(turnText);
+    private String getPieceTextStyle(Color pieceColor) {
+        return "-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: " +
+                (pieceColor == Color.WHITE ? "white" : "black") + "; -fx-alignment: center;";
     }
 
     private void updateMoveHistory() {
+        List<String> moves = game.getMoveHistory();
         StringBuilder whiteMoves = new StringBuilder();
         StringBuilder blackMoves = new StringBuilder();
-        int moveNumber = 1;
-        for (int i = 0; i < game.getMoveHistory().size(); i += 2) {
-            whiteMoves.append(moveNumber).append(". ").append(game.getMoveHistory().get(i)).append("\n");
-            if (i + 1 < game.getMoveHistory().size()) {
-                blackMoves.append(moveNumber).append(". ").append(game.getMoveHistory().get(i + 1)).append("\n");
+
+        for (int i = 0; i < moves.size(); i++) {
+            if (i % 2 == 0) {
+                whiteMoves.append((i / 2 + 1)).append(". ").append(moves.get(i)).append("\n");
+            } else {
+                blackMoves.append((i / 2 + 1)).append(". ").append(moves.get(i)).append("\n");
             }
-            moveNumber++;
         }
+
         whiteMovesArea.setText(whiteMoves.toString());
         blackMovesArea.setText(blackMoves.toString());
     }
 
-    public void showPromotionDialog(Color color) {
+    private void updateTurnLabel() {
+        turnLabel.setText("Turn: " + (game.isWhiteTurn() ? "White" : "Black"));
+    }
+
+    private void showPromotionDialog(int row, int column, Color color) {
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.initOwner(primaryStage);
-        dialog.setTitle("Превращение пешки");
+        dialog.setTitle("Pawn Promotion");
 
-        VBox dialogVBox = new VBox(10);
-        dialogVBox.setAlignment(Pos.CENTER);
-        dialogVBox.setPadding(new Insets(20));
-        dialogVBox.setStyle("-fx-background-color: #34495E;");
+        VBox dialogVbox = new VBox(10);
+        dialogVbox.setAlignment(Pos.CENTER);
+        dialogVbox.setPadding(new Insets(20));
+        dialogVbox.setStyle("-fx-background-color: #34495E;");
 
-        Label label = new Label("Выберите фигуру для превращения:");
+        Label label = new Label("Choose a piece to promote to:");
         label.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
 
-        HBox pieceButtons = new HBox(10);
-        pieceButtons.setAlignment(Pos.CENTER);
+        ComboBox<String> pieceSelector = new ComboBox<>();
+        pieceSelector.getItems().addAll("Queen", "Rook", "Bishop", "Knight");
+        pieceSelector.setValue("Queen");
+        pieceSelector.setStyle("-fx-font-size: 12px;");
 
-        String[] pieceTypes = {"Queen", "Rook", "Bishop", "Knight"};
-        String colorPrefix = color == Color.WHITE ? "w" : "b";
-        for (String pieceType : pieceTypes) {
-            Button button = new Button();
-            String imageKey = switch (pieceType.toLowerCase()) {
-                case "queen" -> colorPrefix + "q.png";
-                case "rook" -> colorPrefix + "r.png";
-                case "bishop" -> colorPrefix + "b.png";
-                case "knight" -> colorPrefix + "n.png";
-                default -> colorPrefix + "q.png";
-            };
-            Image image = pieceImageCache.get(imageKey);
-            if (image != null) {
-                ImageView imageView = new ImageView(image);
-                imageView.setFitWidth(40);
-                imageView.setFitHeight(40);
-                imageView.setPreserveRatio(true);
-                button.setGraphic(imageView);
-            }
-            button.setStyle("-fx-background-color: #3498DB; -fx-background-radius: 5px;");
-            button.setOnAction(e -> {
-                game.completePawnPromotion(pieceType);
-                dialog.close();
-            });
-            pieceButtons.getChildren().add(button);
-        }
+        Button confirmButton = new Button("Confirm");
+        confirmButton.setStyle("-fx-font-size: 12px; -fx-background-color: #3498DB; -fx-text-fill: white; -fx-background-radius: 5px;");
+        confirmButton.setOnAction(e -> {
+            game.completePawnPromotion(pieceSelector.getValue());
+            dialog.close();
+        });
 
-        dialogVBox.getChildren().addAll(label, pieceButtons);
-        Scene dialogScene = new Scene(dialogVBox);
+        dialogVbox.getChildren().addAll(label, pieceSelector, confirmButton);
+        Scene dialogScene = new Scene(dialogVbox, 250, 150);
         dialog.setScene(dialogScene);
         dialog.show();
-    }
-
-    public void setStatusMessage(String message) {
-        statusLabel.setText(message);
-    }
-
-    public void setGameOver(boolean gameOver) {
-        this.gameOver = gameOver;
     }
 }

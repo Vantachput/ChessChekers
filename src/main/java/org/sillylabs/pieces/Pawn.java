@@ -1,17 +1,13 @@
 package org.sillylabs.pieces;
 
-import org.sillylabs.Game;
-
 public class Pawn extends ChessPiece {
-    private Game game;
-
-    public Pawn(Color color, int row, int column, Game game) {
+    public Pawn(Color color, int row, int column) {
         super("Pawn", color, row, column);
-        this.game = game;
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         int direction = color == Color.WHITE ? 1 : -1;
         int startRow = color == Color.WHITE ? 1 : 6;
         int dRow = toRow - row;
@@ -29,7 +25,7 @@ public class Pawn extends ChessPiece {
             if (grid[toRow][toColumn] != null && grid[toRow][toColumn].getColor() != color) {
                 return true;
             }
-            return grid[toRow][toColumn] == null && toRow == game.getEnPassantTargetRow() && toColumn == game.getEnPassantTargetColumn() && game.isEnPassantPossible();
+            return grid[toRow][toColumn] == null && toRow == context.enPassantTargetRow && toColumn == context.enPassantTargetColumn && context.isEnPassantPossible;
         }
 
         return false;

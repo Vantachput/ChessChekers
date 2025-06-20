@@ -1,6 +1,5 @@
 package org.sillylabs;
 
-import org.sillylabs.gui.CheckersMan;
 import org.sillylabs.pieces.*;
 
 import java.util.List;
@@ -44,7 +43,7 @@ public class Board {
         grid[0][6] = new Knight(Color.WHITE, 0, 6);
         grid[0][7] = new Rook(Color.WHITE, 0, 7);
         for (int i = 0; i < BOARD_SIZE; i++) {
-            grid[1][i] = new Pawn(Color.WHITE, 1, i, game);
+            grid[1][i] = new Pawn(Color.WHITE, 1, i);
         }
         grid[7][0] = new Rook(Color.BLACK, 7, 0);
         grid[7][1] = new Knight(Color.BLACK, 7, 1);
@@ -55,7 +54,7 @@ public class Board {
         grid[7][6] = new Knight(Color.BLACK, 7, 6);
         grid[7][7] = new Rook(Color.BLACK, 7, 7);
         for (int i = 0; i < BOARD_SIZE; i++) {
-            grid[6][i] = new Pawn(Color.BLACK, 6, i, game);
+            grid[6][i] = new Pawn(Color.BLACK, 6, i);
         }
     }
 
@@ -86,7 +85,7 @@ public class Board {
         grid[0][6] = new Knight(Color.WHITE, 0, 6);
         grid[0][7] = new Rook(Color.WHITE, 0, 7);
         for (int i = 0; i < BOARD_SIZE; i++) {
-            grid[1][i] = new Pawn(Color.WHITE, 1, i, game);
+            grid[1][i] = new Pawn(Color.WHITE, 1, i);
         }
         grid[7][0] = new Rook(Color.BLACK, 7, 0);
         grid[7][1] = new Knight(Color.BLACK, 7, 1);
@@ -97,7 +96,7 @@ public class Board {
         grid[7][6] = new Knight(Color.BLACK, 7, 6);
         grid[7][7] = new Rook(Color.BLACK, 7, 7);
         for (int i = 0; i < BOARD_SIZE; i++) {
-            grid[6][i] = new Pawn(Color.BLACK, 6, i, game);
+            grid[6][i] = new Pawn(Color.BLACK, 6, i);
         }
         for (int row = 2; row < 4; row++) {
             for (int column = 0; column < BOARD_SIZE; column++) {
@@ -129,6 +128,8 @@ public class Board {
                     }
                     tempGrid[targetRow][targetColumn] = null;
 
+                    MoveContext context = new MoveContext(tempGrid, game.getEnPassantTargetRow(), game.getEnPassantTargetColumn(), game.isEnPassantPossible());
+
                     if (attackingPiece instanceof Pawn) {
                         int pawnRow = attackingPiece.getRow();
                         int pawnColumn = attackingPiece.getColumn();
@@ -138,7 +139,7 @@ public class Board {
                             return true;
                         }
                     } else {
-                        if (attackingPiece.isValidMove(targetRow, targetColumn, tempGrid)) {
+                        if (attackingPiece.isValidMove(targetRow, targetColumn, context)) {
                             return true;
                         }
                     }
@@ -293,7 +294,8 @@ public class Board {
             }
         }
 
-        boolean isValid = pieceToMove.isValidMove(toRow, toColumn, grid);
+        MoveContext context = new MoveContext(grid, game.getEnPassantTargetRow(), game.getEnPassantTargetColumn(), game.isEnPassantPossible());
+        boolean isValid = pieceToMove.isValidMove(toRow, toColumn, context);
         if (!isValid) {
             System.out.println("Invalid: Piece move invalid for " + pieceToMove.getType());
             return false;

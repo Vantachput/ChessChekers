@@ -6,7 +6,8 @@ public class Bishop extends ChessPiece {
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         if (Math.abs(toRow - row) != Math.abs(toColumn - column)) return false;
         int dRow = toRow > row ? 1 : -1;
         int dColumn = toColumn > column ? 1 : -1;

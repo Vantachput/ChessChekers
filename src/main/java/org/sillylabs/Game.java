@@ -1,15 +1,12 @@
 package org.sillylabs;
 
+import org.sillylabs.pieces.*;
 import java.util.ArrayList;
 import java.util.List;
-
-import org.sillylabs.gui.GameGUI;
-import org.sillylabs.pieces.*;
 
 public class Game {
     private final Board board;
     private boolean isWhiteTurn;
-    private GameGUI gui;
     private GameMode gameMode;
     private boolean waitingForPromotion = false;
     private int promotionRow, promotionColumn;
@@ -21,6 +18,7 @@ public class Game {
     private int enPassantTargetRow = -1;
     private int enPassantTargetColumn = -1;
     private boolean enPassantPossible = false;
+    private final List<GameObserver> observers = new ArrayList<>();
 
     public Game() {
         board = new Board();
@@ -31,6 +29,14 @@ public class Game {
         isMultiJump = false;
         multiJumpFromRow = -1;
         multiJumpFromColumn = -1;
+    }
+
+    public void addObserver(GameObserver observer) {
+        observers.add(observer);
+    }
+
+    public void removeObserver(GameObserver observer) {
+        observers.remove(observer);
     }
 
     public void start(GameMode mode) {
@@ -45,19 +51,18 @@ public class Game {
         enPassantTargetRow = -1;
         enPassantTargetColumn = -1;
         enPassantPossible = false;
-        if (gui != null) {
-            gui.updateDisplay();
-        }
+        notifyBoardChanged();
+        notifyStatusUpdated("");
     }
 
     public boolean makeMove(int fromRow, int fromColumn, int toRow, int toColumn) {
         if (waitingForPromotion) {
-            gui.setStatusMessage("Сначала выберите фигуру для превращения пешки!");
+            notifyStatusUpdated("Сначала выберите фигуру для превращения пешки!");
             return false;
         }
 
         if (isMultiJump && (fromRow != multiJumpFromRow || fromColumn != multiJumpFromColumn)) {
-            gui.setStatusMessage("Завершайте серию взятий или подтвердите окончание хода!");
+            notifyStatusUpdated("Завершайте серию взятий или подтвердите окончание хода!");
             return false;
         }
 
@@ -71,8 +76,8 @@ public class Game {
             multiJumpFromColumn = -1;
             isWhiteTurn = !isWhiteTurn;
             turnStartTime = System.currentTimeMillis();
-            gui.setStatusMessage("Ход завершен.");
-            gui.updateDisplay();
+            notifyStatusUpdated("Ход завершен.");
+            notifyBoardChanged();
             return true;
         }
 
@@ -111,7 +116,7 @@ public class Game {
                             ((checkersPiece.getColor() == Color.WHITE && toRow == 0) ||
                                     (checkersPiece.getColor() == Color.BLACK && toRow == 7))) {
                         checkersPiece.setKing(true);
-                        gui.setStatusMessage("Шашка превращена в дамку!");
+                        notifyStatusUpdated("Шашка превращена в дамку!");
                     }
                     if (isCaptureMove) {
                         List<int[]> furtherCaptures = checkersPiece.getCaptureMoves(toRow, toColumn, board.getGrid(), gameMode);
@@ -119,8 +124,8 @@ public class Game {
                             isMultiJump = true;
                             multiJumpFromRow = toRow;
                             multiJumpFromColumn = toColumn;
-                            gui.setStatusMessage("Доступны дополнительные взятия! Выберите ход или подтвердите окончание.");
-                            gui.updateDisplay();
+                            notifyStatusUpdated("Доступны дополнительные взятия! Выберите ход или подтвердите окончание.");
+                            notifyBoardChanged();
                             return true;
                         } else {
                             isMultiJump = false;
@@ -134,27 +139,27 @@ public class Game {
             if (!waitingForPromotion) {
                 isWhiteTurn = !isWhiteTurn;
                 turnStartTime = System.currentTimeMillis();
-                gui.updateDisplay();
+                notifyBoardChanged();
 
                 Color currentPlayerColor = isWhiteTurn ? Color.WHITE : Color.BLACK;
                 Color previousPlayerColor = isWhiteTurn ? Color.BLACK : Color.WHITE;
 
                 if (isEnPassantMove) {
-                    gui.setStatusMessage("Взято на проходе!");
+                    notifyStatusUpdated("Взято на проходе!");
                 } else if (board.isKingInCheck(currentPlayerColor)) {
                     if (board.isCheckmate(currentPlayerColor, gameMode)) {
-                        gui.setStatusMessage("Шах и мат! " + previousPlayerColor + " победили!");
-                        gui.setGameOver(true);
+                        notifyStatusUpdated("Шах и мат! " + previousPlayerColor + " победили!");
+                        notifyGameOver(true, previousPlayerColor);
                     } else {
-                        gui.setStatusMessage(currentPlayerColor + " король под шахом!");
+                        notifyStatusUpdated(currentPlayerColor + " король под шахом!");
                     }
                 } else {
-                    gui.setStatusMessage("");
+                    notifyStatusUpdated("");
                 }
             }
             return true;
         }
-        gui.setStatusMessage("Неверный ход");
+        notifyStatusUpdated("Неверный ход");
         return false;
     }
 
@@ -195,7 +200,7 @@ public class Game {
         promotionRow = row;
         promotionColumn = column;
         promotionColor = color;
-        gui.showPromotionDialog(color);
+        notifyPromotionRequested(row, column, color);
     }
 
     public void completePawnPromotion(String pieceType) {
@@ -205,20 +210,20 @@ public class Game {
 
             isWhiteTurn = !isWhiteTurn;
             turnStartTime = System.currentTimeMillis();
-            gui.updateDisplay();
+            notifyBoardChanged();
 
             Color currentPlayerColor = isWhiteTurn ? Color.WHITE : Color.BLACK;
             Color previousPlayerColor = isWhiteTurn ? Color.BLACK : Color.WHITE;
 
             if (board.isKingInCheck(currentPlayerColor)) {
                 if (board.isCheckmate(currentPlayerColor, gameMode)) {
-                    gui.setStatusMessage("Шах и мат! " + previousPlayerColor + " победили!");
-                    gui.setGameOver(true);
+                    notifyStatusUpdated("Шах и мат! " + previousPlayerColor + " победили!");
+                    notifyGameOver(true, previousPlayerColor);
                 } else {
-                    gui.setStatusMessage(currentPlayerColor + " король под шахом!");
+                    notifyStatusUpdated(currentPlayerColor + " король под шахом!");
                 }
             } else {
-                gui.setStatusMessage("Пешка превращена в " + getPieceNameInRussian(pieceType) + "!");
+                notifyStatusUpdated("Пешка превращена в " + getPieceNameInRussian(pieceType) + "!");
             }
         }
     }
@@ -234,7 +239,7 @@ public class Game {
     }
 
     public boolean isGameOver() {
-        if (gameMode == GameMode.CHESS || gameMode == GameMode.HYBRID || gameMode == GameMode.UNIFIED) {
+        if (gameMode == GameMode.CHECKERS || gameMode == GameMode.HYBRID || gameMode == GameMode.UNIFIED) {
             return board.isCheckmate(isWhiteTurn ? Color.WHITE : Color.BLACK, gameMode);
         }
         return false;
@@ -242,10 +247,6 @@ public class Game {
 
     public Board getBoard() {
         return board;
-    }
-
-    public void setGUI(GameGUI gui) {
-        this.gui = gui;
     }
 
     public GameMode getGameMode() {
@@ -282,5 +283,37 @@ public class Game {
 
     public boolean isMultiJump() {
         return isMultiJump;
+    }
+
+    private void notifyBoardChanged() {
+        for (GameObserver observer : observers) {
+            observer.onBoardChanged();
+        }
+    }
+
+    private void notifyStatusUpdated(String message) {
+        for (GameObserver observer : observers) {
+            observer.onStatusUpdate(message);
+        }
+    }
+
+    private void notifyPromotionRequested(int row, int column, Color color) {
+        for (GameObserver observer : observers) {
+            observer.onPromotionRequested(row, column, color);
+        }
+    }
+
+    private void notifyGameOver(boolean isGameOver, Color winner) {
+        for (GameObserver observer : observers) {
+            observer.onGameOver(isGameOver, winner);
+        }
+    }
+
+    public int getMultiJumpFromRow() {
+        return multiJumpFromRow;
+    }
+
+    public int getMultiJumpFromColumn() {
+        return multiJumpFromColumn;
     }
 }

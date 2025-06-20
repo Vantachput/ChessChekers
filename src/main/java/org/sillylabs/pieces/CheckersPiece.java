@@ -29,7 +29,8 @@ public abstract class CheckersPiece extends Piece {
                 return isCapture(toRow, toColumn, grid);
             }
         }
-        return isValidMove(toRow, toColumn, grid);
+        MoveContext context = new MoveContext(grid, -1, -1, false); // En passant not used for checkers
+        return isValidMove(toRow, toColumn, context);
     }
 
     protected boolean isCapture(int toRow, int toColumn, Piece[][] grid) {
@@ -74,4 +75,7 @@ public abstract class CheckersPiece extends Piece {
         }
         return false;
     }
+
+    @Override
+    public abstract boolean isValidMove(int toRow, int toColumn, MoveContext context);
 }

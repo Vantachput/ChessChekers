@@ -1,9 +1,6 @@
-package org.sillylabs.gui;
+package org.sillylabs.pieces;
 
-import org.sillylabs.pieces.CheckersPiece;
-import org.sillylabs.pieces.Color;
 import org.sillylabs.GameMode;
-import org.sillylabs.pieces.Piece;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +11,8 @@ public class CheckersMan extends CheckersPiece {
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         if (toRow < 0 || toRow >= 8 || toColumn < 0 || toColumn >= 8 || grid[toRow][toColumn] != null) {
             return false;
         }
@@ -79,7 +77,8 @@ public class CheckersMan extends CheckersPiece {
             return isCapture;
         }
 
-        return isValidMove(toRow, toColumn, grid);
+        MoveContext context = new MoveContext(grid, -1, -1, false); // En passant not used for checkers
+        return isValidMove(toRow, toColumn, context);
     }
 
     protected boolean isCapture(int toRow, int toColumn, Piece[][] grid) {

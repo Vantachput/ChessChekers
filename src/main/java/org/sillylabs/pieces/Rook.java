@@ -17,7 +17,8 @@ public class Rook extends ChessPiece {
     }
 
     @Override
-    public boolean isValidMove(int toRow, int toColumn, Piece[][] grid) {
+    public boolean isValidMove(int toRow, int toColumn, MoveContext context) {
+        Piece[][] grid = context.grid;
         if (toRow != row && toColumn != column) return false;
 
         int start, end;
