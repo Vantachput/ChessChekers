@@ -19,6 +19,7 @@ public class Game {
     private int enPassantTargetColumn = -1;
     private boolean enPassantPossible = false;
     private final List<GameObserver> observers = new ArrayList<>();
+    private GameStateManager stateManager;
 
     public Game() {
         board = new Board();
@@ -51,6 +52,24 @@ public class Game {
         enPassantTargetRow = -1;
         enPassantTargetColumn = -1;
         enPassantPossible = false;
+
+        // Set the appropriate MoveValidator and GameStateManager
+        switch (mode) {
+            case CHESS:
+                board.setMoveValidator(new ChessMoveValidator());
+                stateManager = new ChessGameStateManager();
+                break;
+            case CHECKERS:
+                board.setMoveValidator(new CheckersMoveValidator());
+                stateManager = new CheckersGameStateManager();
+                break;
+            case HYBRID:
+            case UNIFIED:
+                board.setMoveValidator(new HybridMoveValidator());
+                stateManager = new ChessGameStateManager(); // Hybrid uses chess checkmate for kings
+                break;
+        }
+
         notifyBoardChanged();
         notifyStatusUpdated("");
     }
@@ -146,13 +165,16 @@ public class Game {
 
                 if (isEnPassantMove) {
                     notifyStatusUpdated("Взято на проходе!");
-                } else if (board.isKingInCheck(currentPlayerColor)) {
-                    if (board.isCheckmate(currentPlayerColor, gameMode)) {
+                } else if ((gameMode == GameMode.CHESS || gameMode == GameMode.HYBRID) && stateManager.isKingInCheck(currentPlayerColor, board)) {
+                    if (stateManager.isCheckmate(currentPlayerColor, board)) {
                         notifyStatusUpdated("Шах и мат! " + previousPlayerColor + " победили!");
                         notifyGameOver(true, previousPlayerColor);
                     } else {
                         notifyStatusUpdated(currentPlayerColor + " король под шахом!");
                     }
+                } else if (gameMode == GameMode.CHECKERS && stateManager.isCheckmate(currentPlayerColor, board)) {
+                    notifyStatusUpdated("Игра окончена! " + previousPlayerColor + " победили!");
+                    notifyGameOver(true, previousPlayerColor);
                 } else {
                     notifyStatusUpdated("");
                 }
@@ -215,13 +237,16 @@ public class Game {
             Color currentPlayerColor = isWhiteTurn ? Color.WHITE : Color.BLACK;
             Color previousPlayerColor = isWhiteTurn ? Color.BLACK : Color.WHITE;
 
-            if (board.isKingInCheck(currentPlayerColor)) {
-                if (board.isCheckmate(currentPlayerColor, gameMode)) {
+            if ((gameMode == GameMode.CHESS || gameMode == GameMode.HYBRID) && stateManager.isKingInCheck(currentPlayerColor, board)) {
+                if (stateManager.isCheckmate(currentPlayerColor, board)) {
                     notifyStatusUpdated("Шах и мат! " + previousPlayerColor + " победили!");
                     notifyGameOver(true, previousPlayerColor);
                 } else {
                     notifyStatusUpdated(currentPlayerColor + " король под шахом!");
                 }
+            } else if (gameMode == GameMode.CHECKERS && stateManager.isCheckmate(currentPlayerColor, board)) {
+                notifyStatusUpdated("Игра окончена! " + previousPlayerColor + " победили!");
+                notifyGameOver(true, previousPlayerColor);
             } else {
                 notifyStatusUpdated("Пешка превращена в " + getPieceNameInRussian(pieceType) + "!");
             }
@@ -239,10 +264,7 @@ public class Game {
     }
 
     public boolean isGameOver() {
-        if (gameMode == GameMode.CHECKERS || gameMode == GameMode.HYBRID || gameMode == GameMode.UNIFIED) {
-            return board.isCheckmate(isWhiteTurn ? Color.WHITE : Color.BLACK, gameMode);
-        }
-        return false;
+        return stateManager.isCheckmate(isWhiteTurn ? Color.WHITE : Color.BLACK, board);
     }
 
     public Board getBoard() {
@@ -285,6 +307,14 @@ public class Game {
         return isMultiJump;
     }
 
+    public int getMultiJumpFromRow() {
+        return multiJumpFromRow;
+    }
+
+    public int getMultiJumpFromColumn() {
+        return multiJumpFromColumn;
+    }
+
     private void notifyBoardChanged() {
         for (GameObserver observer : observers) {
             observer.onBoardChanged();
@@ -307,13 +337,5 @@ public class Game {
         for (GameObserver observer : observers) {
             observer.onGameOver(isGameOver, winner);
         }
-    }
-
-    public int getMultiJumpFromRow() {
-        return multiJumpFromRow;
-    }
-
-    public int getMultiJumpFromColumn() {
-        return multiJumpFromColumn;
     }
 }
