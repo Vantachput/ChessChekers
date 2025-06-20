@@ -3,21 +3,24 @@ package org.sillylabs;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.sillylabs.gui.GameGUI;
+import org.sillylabs.pieces.*;
+
 public class Game {
-    private Board board;
+    private final Board board;
     private boolean isWhiteTurn;
     private GameGUI gui;
-    private String gameMode;
+    private GameMode gameMode;
     private boolean waitingForPromotion = false;
-    private int promotionX, promotionY;
-    private String promotionColor;
+    private int promotionRow, promotionColumn;
+    private Color promotionColor;
     private long turnStartTime;
-    private List<String> moveHistory;
+    private final List<String> moveHistory;
     private boolean isMultiJump;
-    private int multiJumpFromX, multiJumpFromY;
-    private int enPassantTargetX = -1; // Row of en passant target square
-    private int enPassantTargetY = -1; // Column of en passant target square
-    private boolean enPassantPossible = false; // Flag for en passant availability
+    private int multiJumpFromRow, multiJumpFromColumn;
+    private int enPassantTargetRow = -1;
+    private int enPassantTargetColumn = -1;
+    private boolean enPassantPossible = false;
 
     public Game() {
         board = new Board();
@@ -26,47 +29,46 @@ public class Game {
         moveHistory = new ArrayList<>();
         turnStartTime = System.currentTimeMillis();
         isMultiJump = false;
-        multiJumpFromX = -1;
-        multiJumpFromY = -1;
+        multiJumpFromRow = -1;
+        multiJumpFromColumn = -1;
     }
 
-    public void start(String mode) {
+    public void start(GameMode mode) {
         this.gameMode = mode;
         board.setupBoard(mode);
         moveHistory.clear();
         isWhiteTurn = true;
         turnStartTime = System.currentTimeMillis();
         isMultiJump = false;
-        multiJumpFromX = -1;
-        multiJumpFromY = -1;
-        enPassantTargetX = -1;
-        enPassantTargetY = -1;
+        multiJumpFromRow = -1;
+        multiJumpFromColumn = -1;
+        enPassantTargetRow = -1;
+        enPassantTargetColumn = -1;
         enPassantPossible = false;
         if (gui != null) {
             gui.updateDisplay();
         }
     }
 
-    public boolean makeMove(int fromX, int fromY, int toX, int toY) {
+    public boolean makeMove(int fromRow, int fromColumn, int toRow, int toColumn) {
         if (waitingForPromotion) {
             gui.setStatusMessage("Сначала выберите фигуру для превращения пешки!");
             return false;
         }
 
-        if (isMultiJump && (fromX != multiJumpFromX || fromY != multiJumpFromY)) {
+        if (isMultiJump && (fromRow != multiJumpFromRow || fromColumn != multiJumpFromColumn)) {
             gui.setStatusMessage("Завершайте серию взятий или подтвердите окончание хода!");
             return false;
         }
 
-        Piece piece = board.getPiece(fromX, fromY);
-        boolean isEnPassantMove = piece instanceof Pawn && Math.abs(toY - fromY) == 1 &&
-                toX == enPassantTargetX && toY == enPassantTargetY && enPassantPossible;
+        Piece piece = board.getPiece(fromRow, fromColumn);
+        boolean isEnPassantMove = piece instanceof Pawn && Math.abs(toColumn - fromColumn) == 1 &&
+                toRow == enPassantTargetRow && toColumn == enPassantTargetColumn && enPassantPossible;
 
-        // Allow ending multi-jump by selecting the same square
-        if (isMultiJump && fromX == toX && fromY == toY) {
+        if (isMultiJump && fromRow == toRow && fromColumn == toColumn) {
             isMultiJump = false;
-            multiJumpFromX = -1;
-            multiJumpFromY = -1;
+            multiJumpFromRow = -1;
+            multiJumpFromColumn = -1;
             isWhiteTurn = !isWhiteTurn;
             turnStartTime = System.currentTimeMillis();
             gui.setStatusMessage("Ход завершен.");
@@ -74,62 +76,56 @@ public class Game {
             return true;
         }
 
-        if (board.isValidMove(fromX, fromY, toX, toY, isWhiteTurn, gameMode, isMultiJump)) {
+        if (board.isValidMove(fromRow, fromColumn, toRow, toColumn, isWhiteTurn, gameMode, isMultiJump)) {
             long moveEndTime = System.currentTimeMillis();
             double timeTaken = (moveEndTime - turnStartTime) / 1000.0;
 
-            String moveNotation = getMoveNotation(fromX, fromY, toX, toY);
+            String moveNotation = getMoveNotation(fromRow, fromColumn, toRow, toColumn);
             String moveRecord = String.format("%s (%.2f сек)", moveNotation, timeTaken);
             moveHistory.add(moveRecord);
 
-            boolean isCaptureMove = piece instanceof CheckersPiece && Math.abs(toX - fromX) >= 2 && Math.abs(toY - fromY) >= 2;
+            boolean isCaptureMove = piece instanceof CheckersPiece && Math.abs(toRow - fromRow) >= 2 && Math.abs(toColumn - fromColumn) >= 2;
 
-            // Store en passant capture coordinates if applicable
-            int capturedPawnX = -1, capturedPawnY = -1;
+            int capturedPawnRow = -1, capturedPawnColumn = -1;
             if (isEnPassantMove) {
-                int direction = piece.getColor().equals("White") ? 1 : -1;
-                capturedPawnX = toX - direction;
-                capturedPawnY = toY;
+                int direction = piece.getColor() == Color.WHITE ? 1 : -1;
+                capturedPawnRow = toRow - direction;
+                capturedPawnColumn = toColumn;
             }
 
-            // Reset en passant state after storing capture info
             enPassantPossible = false;
-            enPassantTargetX = -1;
-            enPassantTargetY = -1;
+            enPassantTargetRow = -1;
+            enPassantTargetColumn = -1;
 
-            // Check for en passant eligibility
-            if (piece instanceof Pawn && Math.abs(toX - fromX) == 2) {
+            if (piece instanceof Pawn && Math.abs(toRow - fromRow) == 2) {
                 enPassantPossible = true;
-                enPassantTargetX = (fromX + toX) / 2; // Square passed over
-                enPassantTargetY = toY;
+                enPassantTargetRow = (fromRow + toRow) / 2;
+                enPassantTargetColumn = toColumn;
             }
 
-            board.movePiece(fromX, fromY, toX, toY, isMultiJump, capturedPawnX, capturedPawnY);
+            board.movePiece(fromRow, fromColumn, toRow, toColumn, isMultiJump, capturedPawnRow, capturedPawnColumn);
 
-            if (gameMode.equals("Checkers") || gameMode.equals("Hybrid") || gameMode.equals("Unified")) {
-                if (piece instanceof CheckersPiece) {
-                    CheckersPiece checkersPiece = (CheckersPiece) piece;
-                    // Check for promotion, including during multi-jumps
+            if (gameMode == GameMode.CHECKERS || gameMode == GameMode.HYBRID || gameMode == GameMode.UNIFIED) {
+                if (piece instanceof CheckersPiece checkersPiece) {
                     if (!checkersPiece.isKing() &&
-                            ((checkersPiece.getColor().equals("White") && toX == 0) ||
-                                    (checkersPiece.getColor().equals("Black") && toX == 7))) {
+                            ((checkersPiece.getColor() == Color.WHITE && toRow == 0) ||
+                                    (checkersPiece.getColor() == Color.BLACK && toRow == 7))) {
                         checkersPiece.setKing(true);
                         gui.setStatusMessage("Шашка превращена в дамку!");
                     }
-                    // Handle multi-jump captures
                     if (isCaptureMove) {
-                        List<int[]> furtherCaptures = checkersPiece.getCaptureMoves(toX, toY, board.getGrid(), gameMode);
+                        List<int[]> furtherCaptures = checkersPiece.getCaptureMoves(toRow, toColumn, board.getGrid(), gameMode);
                         if (!furtherCaptures.isEmpty()) {
                             isMultiJump = true;
-                            multiJumpFromX = toX;
-                            multiJumpFromY = toY;
+                            multiJumpFromRow = toRow;
+                            multiJumpFromColumn = toColumn;
                             gui.setStatusMessage("Доступны дополнительные взятия! Выберите ход или подтвердите окончание.");
                             gui.updateDisplay();
                             return true;
                         } else {
                             isMultiJump = false;
-                            multiJumpFromX = -1;
-                            multiJumpFromY = -1;
+                            multiJumpFromRow = -1;
+                            multiJumpFromColumn = -1;
                         }
                     }
                 }
@@ -140,8 +136,8 @@ public class Game {
                 turnStartTime = System.currentTimeMillis();
                 gui.updateDisplay();
 
-                String currentPlayerColor = isWhiteTurn ? "White" : "Black";
-                String previousPlayerColor = isWhiteTurn ? "Black" : "White";
+                Color currentPlayerColor = isWhiteTurn ? Color.WHITE : Color.BLACK;
+                Color previousPlayerColor = isWhiteTurn ? Color.BLACK : Color.WHITE;
 
                 if (isEnPassantMove) {
                     gui.setStatusMessage("Взято на проходе!");
@@ -162,23 +158,23 @@ public class Game {
         return false;
     }
 
-    private String getMoveNotation(int fromX, int fromY, int toX, int toY) {
-        Piece piece = board.getPiece(fromX, fromY);
-        if (piece instanceof King && fromY == 4 && toX == fromX) {
-            if (toY == 6) {
+    private String getMoveNotation(int fromRow, int fromColumn, int toRow, int toColumn) {
+        Piece piece = board.getPiece(fromRow, fromColumn);
+        if (piece instanceof King && fromColumn == 4 && toRow == fromRow) {
+            if (toColumn == 6) {
                 return "O-O";
-            } else if (toY == 2) {
+            } else if (toColumn == 2) {
                 return "O-O-O";
             }
         }
-        char fromFile = (char) ('a' + fromY);
-        int fromRank = 8 - fromX;
-        char toFile = (char) ('a' + toY);
-        int toRank = 8 - toX;
+        char fromFile = (char) ('a' + fromColumn);
+        int fromRank = 8 - fromRow;
+        char toFile = (char) ('a' + toColumn);
+        int toRank = 8 - toRow;
         String pieceSymbol = piece instanceof CheckersPiece ? "" : getPieceSymbol(piece.getType());
-        String capture = (piece instanceof CheckersPiece && Math.abs(toX - fromX) >= 2 && Math.abs(toY - fromY) >= 2) ||
-                board.getPiece(toX, toY) != null ||
-                (piece instanceof Pawn && Math.abs(toY - fromY) == 1 && board.getPiece(toX, toY) == null && toX == enPassantTargetX && toY == enPassantTargetY) ? "x" : "";
+        String capture = (piece instanceof CheckersPiece && Math.abs(toRow - fromRow) >= 2 && Math.abs(toColumn - fromColumn) >= 2) ||
+                board.getPiece(toRow, toColumn) != null ||
+                (piece instanceof Pawn && Math.abs(toColumn - fromColumn) == 1 && board.getPiece(toRow, toColumn) == null && toRow == enPassantTargetRow && toColumn == enPassantTargetColumn) ? "x" : "";
         return String.format("%s%s%s%s%d", pieceSymbol, fromFile + "" + fromRank, capture, toFile, toRank);
     }
 
@@ -194,25 +190,25 @@ public class Game {
         };
     }
 
-    public void requestPawnPromotion(int x, int y, String color) {
+    public void requestPawnPromotion(int row, int column, Color color) {
         waitingForPromotion = true;
-        promotionX = x;
-        promotionY = y;
+        promotionRow = row;
+        promotionColumn = column;
         promotionColor = color;
         gui.showPromotionDialog(color);
     }
 
     public void completePawnPromotion(String pieceType) {
         if (waitingForPromotion) {
-            board.promotePawn(promotionX, promotionY, pieceType, promotionColor);
+            board.promotePawn(promotionRow, promotionColumn, pieceType, promotionColor);
             waitingForPromotion = false;
 
             isWhiteTurn = !isWhiteTurn;
             turnStartTime = System.currentTimeMillis();
             gui.updateDisplay();
 
-            String currentPlayerColor = isWhiteTurn ? "White" : "Black";
-            String previousPlayerColor = isWhiteTurn ? "Black" : "White";
+            Color currentPlayerColor = isWhiteTurn ? Color.WHITE : Color.BLACK;
+            Color previousPlayerColor = isWhiteTurn ? Color.BLACK : Color.WHITE;
 
             if (board.isKingInCheck(currentPlayerColor)) {
                 if (board.isCheckmate(currentPlayerColor, gameMode)) {
@@ -238,8 +234,8 @@ public class Game {
     }
 
     public boolean isGameOver() {
-        if (gameMode.equals("Chess") || gameMode.equals("Hybrid") || gameMode.equals("Unified")) {
-            return board.isCheckmate(isWhiteTurn ? "White" : "Black", gameMode);
+        if (gameMode == GameMode.CHESS || gameMode == GameMode.HYBRID || gameMode == GameMode.UNIFIED) {
+            return board.isCheckmate(isWhiteTurn ? Color.WHITE : Color.BLACK, gameMode);
         }
         return false;
     }
@@ -252,7 +248,7 @@ public class Game {
         this.gui = gui;
     }
 
-    public String getGameMode() {
+    public GameMode getGameMode() {
         return gameMode;
     }
 
@@ -272,12 +268,12 @@ public class Game {
         return board.getGrid();
     }
 
-    public int getEnPassantTargetX() {
-        return enPassantTargetX;
+    public int getEnPassantTargetRow() {
+        return enPassantTargetRow;
     }
 
-    public int getEnPassantTargetY() {
-        return enPassantTargetY;
+    public int getEnPassantTargetColumn() {
+        return enPassantTargetColumn;
     }
 
     public boolean isEnPassantPossible() {

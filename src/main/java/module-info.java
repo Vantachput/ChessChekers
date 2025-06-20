@@ -6,4 +6,8 @@ module org.sillylabs {
 
     opens org.sillylabs to javafx.fxml;
     exports org.sillylabs;
+    exports org.sillylabs.gui;
+    opens org.sillylabs.gui to javafx.fxml;
+    exports org.sillylabs.pieces;
+    opens org.sillylabs.pieces to javafx.fxml;
 }

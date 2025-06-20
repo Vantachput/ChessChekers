@@ -1,138 +1,144 @@
 package org.sillylabs;
 
-import java.util.ArrayList;
+import org.sillylabs.gui.CheckersMan;
+import org.sillylabs.pieces.*;
+
 import java.util.List;
 
 public class Board {
     private Piece[][] grid;
     private Game game;
+    private static final int BOARD_SIZE = 8;
 
     public Board() {
-        grid = new Piece[8][8];
+        grid = new Piece[BOARD_SIZE][BOARD_SIZE];
     }
 
     public void setGame(Game game) {
         this.game = game;
     }
 
-    public void setupBoard(String mode) {
-        grid = new Piece[8][8];
-        if (mode.equals("Chess")) {
-            setupChess();
-        } else if (mode.equals("Checkers")) {
-            setupCheckers();
-        } else if (mode.equals("Hybrid") || mode.equals("Unified")) {
-            setupHybrid();
+    public void setupBoard(GameMode mode) {
+        grid = new Piece[BOARD_SIZE][BOARD_SIZE];
+        switch (mode) {
+            case CHESS:
+                setupChess();
+                break;
+            case CHECKERS:
+                setupCheckers();
+                break;
+            case HYBRID:
+            case UNIFIED:
+                setupHybrid();
+                break;
         }
     }
 
     private void setupChess() {
-        grid[0][0] = new Rook("White", 0, 0);
-        grid[0][1] = new Knight("White", 0, 1);
-        grid[0][2] = new Bishop("White", 0, 2);
-        grid[0][3] = new King("White", 0, 3);
-        grid[0][4] = new Queen("White", 0, 4);
-        grid[0][5] = new Bishop("White", 0, 5);
-        grid[0][6] = new Knight("White", 0, 6);
-        grid[0][7] = new Rook("White", 0, 7);
-        for (int i = 0; i < 8; i++) {
-            grid[1][i] = new Pawn("White", 1, i, game);
+        grid[0][0] = new Rook(Color.WHITE, 0, 0);
+        grid[0][1] = new Knight(Color.WHITE, 0, 1);
+        grid[0][2] = new Bishop(Color.WHITE, 0, 2);
+        grid[0][3] = new King(Color.WHITE, 0, 3);
+        grid[0][4] = new Queen(Color.WHITE, 0, 4);
+        grid[0][5] = new Bishop(Color.WHITE, 0, 5);
+        grid[0][6] = new Knight(Color.WHITE, 0, 6);
+        grid[0][7] = new Rook(Color.WHITE, 0, 7);
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            grid[1][i] = new Pawn(Color.WHITE, 1, i, game);
         }
-        grid[7][0] = new Rook("Black", 7, 0);
-        grid[7][1] = new Knight("Black", 7, 1);
-        grid[7][2] = new Bishop("Black", 7, 2);
-        grid[7][3] = new King("Black", 7, 3);
-        grid[7][4] = new Queen("Black", 7, 4);
-        grid[7][5] = new Bishop("Black", 7, 5);
-        grid[7][6] = new Knight("Black", 7, 6);
-        grid[7][7] = new Rook("Black", 7, 7);
-        for (int i = 0; i < 8; i++) {
-            grid[6][i] = new Pawn("Black", 6, i, game);
+        grid[7][0] = new Rook(Color.BLACK, 7, 0);
+        grid[7][1] = new Knight(Color.BLACK, 7, 1);
+        grid[7][2] = new Bishop(Color.BLACK, 7, 2);
+        grid[7][3] = new King(Color.BLACK, 7, 3);
+        grid[7][4] = new Queen(Color.BLACK, 7, 4);
+        grid[7][5] = new Bishop(Color.BLACK, 7, 5);
+        grid[7][6] = new Knight(Color.BLACK, 7, 6);
+        grid[7][7] = new Rook(Color.BLACK, 7, 7);
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            grid[6][i] = new Pawn(Color.BLACK, 6, i, game);
         }
     }
 
     private void setupCheckers() {
-        for (int y = 0; y < 3; y++) {
-            for (int x = 0; x < 8; x++) {
-                if ((x + y) % 2 == 1) {
-                    grid[y][x] = new CheckersMan("Black", y, x);
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                if ((row + column) % 2 == 1) {
+                    grid[row][column] = new CheckersMan(Color.BLACK, row, column);
                 }
             }
         }
-        for (int y = 5; y < 8; y++) {
-            for (int x = 0; x < 8; x++) {
-                if ((x + y) % 2 == 1) {
-                    grid[y][x] = new CheckersMan("White", y, x);
+        for (int row = 5; row < BOARD_SIZE; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                if ((row + column) % 2 == 1) {
+                    grid[row][column] = new CheckersMan(Color.WHITE, row, column);
                 }
             }
         }
     }
 
     private void setupHybrid() {
-        grid[0][0] = new Rook("White", 0, 0);
-        grid[0][1] = new Knight("White", 0, 1);
-        grid[0][2] = new Bishop("White", 0, 2);
-        grid[0][3] = new Queen("White", 0, 3);
-        grid[0][4] = new King("White", 0, 4);
-        grid[0][5] = new Bishop("White", 0, 5);
-        grid[0][6] = new Knight("White", 0, 6);
-        grid[0][7] = new Rook("White", 0, 7);
-        for (int i = 0; i < 8; i++) {
-            grid[1][i] = new Pawn("White", 1, i, game);
+        grid[0][0] = new Rook(Color.WHITE, 0, 0);
+        grid[0][1] = new Knight(Color.WHITE, 0, 1);
+        grid[0][2] = new Bishop(Color.WHITE, 0, 2);
+        grid[0][3] = new Queen(Color.WHITE, 0, 3);
+        grid[0][4] = new King(Color.WHITE, 0, 4);
+        grid[0][5] = new Bishop(Color.WHITE, 0, 5);
+        grid[0][6] = new Knight(Color.WHITE, 0, 6);
+        grid[0][7] = new Rook(Color.WHITE, 0, 7);
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            grid[1][i] = new Pawn(Color.WHITE, 1, i, game);
         }
-        grid[7][0] = new Rook("Black", 7, 0);
-        grid[7][1] = new Knight("Black", 7, 1);
-        grid[7][2] = new Bishop("Black", 7, 2);
-        grid[7][3] = new Queen("Black", 7, 3);
-        grid[7][4] = new King("Black", 7, 4);
-        grid[7][5] = new Bishop("Black", 7, 5);
-        grid[7][6] = new Knight("Black", 7, 6);
-        grid[7][7] = new Rook("Black", 7, 7);
-        for (int i = 0; i < 8; i++) {
-            grid[6][i] = new Pawn("Black", 6, i, game);
+        grid[7][0] = new Rook(Color.BLACK, 7, 0);
+        grid[7][1] = new Knight(Color.BLACK, 7, 1);
+        grid[7][2] = new Bishop(Color.BLACK, 7, 2);
+        grid[7][3] = new Queen(Color.BLACK, 7, 3);
+        grid[7][4] = new King(Color.BLACK, 7, 4);
+        grid[7][5] = new Bishop(Color.BLACK, 7, 5);
+        grid[7][6] = new Knight(Color.BLACK, 7, 6);
+        grid[7][7] = new Rook(Color.BLACK, 7, 7);
+        for (int i = 0; i < BOARD_SIZE; i++) {
+            grid[6][i] = new Pawn(Color.BLACK, 6, i, game);
         }
-        for (int y = 2; y < 4; y++) {
-            for (int x = 0; x < 8; x++) {
-                if ((x + y) % 2 == 1) {
-                    grid[y][x] = new CheckersMan("Black", y, x);
+        for (int row = 2; row < 4; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                if ((row + column) % 2 == 1) {
+                    grid[row][column] = new CheckersMan(Color.BLACK, row, column);
                 }
             }
         }
-        for (int y = 4; y < 6; y++) {
-            for (int x = 0; x < 8; x++) {
-                if ((x + y) % 2 == 1) {
-                    grid[y][x] = new CheckersMan("White", y, x);
+        for (int row = 4; row < 6; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                if ((row + column) % 2 == 1) {
+                    grid[row][column] = new CheckersMan(Color.WHITE, row, column);
                 }
             }
         }
     }
 
-    public boolean isSquareAttacked(int targetX, int targetY, String friendlyKingColor) {
-        String opponentColor = friendlyKingColor.equals("White") ? "Black" : "White";
+    public boolean isSquareAttacked(int targetRow, int targetColumn, Color friendlyKingColor) {
+        Color opponentColor = friendlyKingColor == Color.WHITE ? Color.BLACK : Color.WHITE;
 
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                Piece attackingPiece = grid[r][c];
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                Piece attackingPiece = grid[row][column];
 
-                if (attackingPiece != null && attackingPiece.getColor().equals(opponentColor)) {
-                    Piece[][] tempGrid = new Piece[8][8];
-                    for (int i = 0; i < 8; i++) {
-                        for (int j = 0; j < 8; j++) {
-                            tempGrid[i][j] = grid[i][j];
-                        }
+                if (attackingPiece != null && attackingPiece.getColor() == opponentColor) {
+                    Piece[][] tempGrid = new Piece[BOARD_SIZE][BOARD_SIZE];
+                    for (int i = 0; i < BOARD_SIZE; i++) {
+                        System.arraycopy(grid[i], 0, tempGrid[i], 0, BOARD_SIZE);
                     }
-                    tempGrid[targetX][targetY] = null;
+                    tempGrid[targetRow][targetColumn] = null;
 
                     if (attackingPiece instanceof Pawn) {
-                        int pawnRow = attackingPiece.getX();
-                        int pawnCol = attackingPiece.getY();
-                        int direction = attackingPiece.getColor().equals("White") ? 1 : -1;
+                        int pawnRow = attackingPiece.getRow();
+                        int pawnColumn = attackingPiece.getColumn();
+                        int direction = attackingPiece.getColor() == Color.WHITE ? 1 : -1;
 
-                        if (targetX == pawnRow + direction && (targetY == pawnCol - 1 || targetY == pawnCol + 1)) {
+                        if (targetRow == pawnRow + direction && (targetColumn == pawnColumn - 1 || targetColumn == pawnColumn + 1)) {
                             return true;
                         }
                     } else {
-                        if (attackingPiece.isValidMove(targetX, targetY, tempGrid)) {
+                        if (attackingPiece.isValidMove(targetRow, targetColumn, tempGrid)) {
                             return true;
                         }
                     }
@@ -142,13 +148,13 @@ public class Board {
         return false;
     }
 
-    public boolean hasAvailableCaptures(boolean isWhiteTurn, String gameMode) {
-        String color = isWhiteTurn ? "White" : "Black";
-        for (int x = 0; x < 8; x++) {
-            for (int y = 0; y < 8; y++) {
-                Piece piece = grid[x][y];
-                if (piece != null && piece.getColor().equals(color) && piece instanceof CheckersPiece) {
-                    List<int[]> captureMoves = ((CheckersPiece) piece).getCaptureMoves(x, y, grid, gameMode);
+    public boolean hasAvailableCaptures(boolean isWhiteTurn, GameMode gameMode) {
+        Color color = isWhiteTurn ? Color.WHITE : Color.BLACK;
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                Piece piece = grid[row][column];
+                if (piece != null && piece.getColor() == color && piece instanceof CheckersPiece) {
+                    List<int[]> captureMoves = ((CheckersPiece) piece).getCaptureMoves(row, column, grid, gameMode);
                     if (!captureMoves.isEmpty()) {
                         return true;
                     }
@@ -158,40 +164,36 @@ public class Board {
         return false;
     }
 
-    public boolean isValidMove(int fromX, int fromY, int toX, int toY, boolean isWhiteTurn, String gameMode, boolean isMultiJump) {
-        System.out.println("Validating move: from (" + fromX + ", " + fromY + ") to (" + toX + ", " + toY + ")");
-        Piece pieceToMove = grid[fromX][fromY];
+    public boolean isValidMove(int fromRow, int fromColumn, int toRow, int toColumn, boolean isWhiteTurn, GameMode gameMode, boolean isMultiJump) {
+        System.out.println("Validating move: from (" + fromRow + ", " + fromColumn + ") to (" + toRow + ", " + toColumn + ")");
+        Piece pieceToMove = grid[fromRow][fromColumn];
         if (pieceToMove == null) {
-            System.out.println("Invalid: No piece at (" + fromX + ", " + fromY + ")");
+            System.out.println("Invalid: No piece at (" + fromRow + ", " + fromColumn + ")");
             return false;
         }
-        if (!pieceToMove.getColor().equals(isWhiteTurn ? "White" : "Black")) {
+        if (pieceToMove.getColor() != (isWhiteTurn ? Color.WHITE : Color.BLACK)) {
             System.out.println("Invalid: Wrong color. Piece is " + pieceToMove.getColor() + ", turn is " + (isWhiteTurn ? "White" : "Black"));
             return false;
         }
 
-        if (grid[toX][toY] instanceof King) {
+        if (grid[toRow][toColumn] instanceof King) {
             System.out.println("Invalid: Cannot capture the King directly.");
             return false;
         }
-        if (pieceToMove instanceof CheckersPiece) {
-            CheckersPiece checkersPiece = (CheckersPiece) pieceToMove;
+        if (pieceToMove instanceof CheckersPiece checkersPiece) {
             System.out.println("Checking CheckersPiece move with multiJump: " + isMultiJump);
-            return checkersPiece.isValidMoveWithMultiJump(toX, toY, grid, isMultiJump);
+            return checkersPiece.isValidMoveWithMultiJump(toRow, toColumn, grid, isMultiJump);
         }
-        if (pieceToMove instanceof King && (gameMode.equals("Chess") || gameMode.equals("Hybrid") || gameMode.equals("Unified"))) {
-            King king = (King) pieceToMove;
-            if (!king.getHasMoved() && fromX == toX) {
-                // Короткая рокировка (в сторону h-файла)
-                if ((fromY == 3 && toY == 5) || (fromY == 4 && toY == 6)) {
-                    int rookY = 7; // Ладья на h-файле
-                    Piece rookPiece = grid[fromX][rookY];
-                    if (rookPiece instanceof Rook) {
-                        Rook kingsideRook = (Rook) rookPiece;
-                        if (!kingsideRook.getHasMoved() && kingsideRook.getColor().equals(king.getColor())) {
+        if (pieceToMove instanceof King king && (gameMode == GameMode.CHESS || gameMode == GameMode.HYBRID || gameMode == GameMode.UNIFIED)) {
+            if (!king.getHasMoved() && fromRow == toRow) {
+                if ((fromColumn == 3 && toColumn == 5) || (fromColumn == 4 && toColumn == 6)) {
+                    int rookColumn = 7;
+                    Piece rookPiece = grid[fromRow][rookColumn];
+                    if (rookPiece instanceof Rook kingsideRook) {
+                        if (!kingsideRook.getHasMoved() && kingsideRook.getColor() == king.getColor()) {
                             boolean pathClear = true;
-                            for (int y = fromY + 1; y < rookY; y++) {
-                                if (grid[fromX][y] != null) {
+                            for (int column = fromColumn + 1; column < rookColumn; column++) {
+                                if (grid[fromRow][column] != null) {
                                     pathClear = false;
                                     break;
                                 }
@@ -200,8 +202,8 @@ public class Board {
                             if (pathClear) {
                                 if (!isKingInCheck(king.getColor())) {
                                     boolean squaresSafe = true;
-                                    for (int y = fromY; y <= toY; y++) {
-                                        if (isSquareAttacked(fromX, y, king.getColor())) {
+                                    for (int column = fromColumn; column <= toColumn; column++) {
+                                        if (isSquareAttacked(fromRow, column, king.getColor())) {
                                             squaresSafe = false;
                                             break;
                                         }
@@ -231,16 +233,14 @@ public class Board {
                         return false;
                     }
                 }
-                // Длинная рокировка (в сторону a-файла)
-                else if ((fromY == 3 && toY == 1) || (fromY == 4 && toY == 2)) {
-                    int rookY = 0; // Ладья на a-файле
-                    Piece rookPiece = grid[fromX][rookY];
-                    if (rookPiece instanceof Rook) {
-                        Rook queensideRook = (Rook) rookPiece;
-                        if (!queensideRook.getHasMoved() && queensideRook.getColor().equals(king.getColor())) {
+                else if ((fromColumn == 3 && toColumn == 1) || (fromColumn == 4 && toColumn == 2)) {
+                    int rookColumn = 0;
+                    Piece rookPiece = grid[fromRow][rookColumn];
+                    if (rookPiece instanceof Rook queensideRook) {
+                        if (!queensideRook.getHasMoved() && queensideRook.getColor() == king.getColor()) {
                             boolean pathClear = true;
-                            for (int y = rookY + 1; y < fromY; y++) {
-                                if (grid[fromX][y] != null) {
+                            for (int column = rookColumn + 1; column < fromColumn; column++) {
+                                if (grid[fromRow][column] != null) {
                                     pathClear = false;
                                     break;
                                 }
@@ -249,8 +249,8 @@ public class Board {
                             if (pathClear) {
                                 if (!isKingInCheck(king.getColor())) {
                                     boolean squaresSafe = true;
-                                    for (int y = toY; y <= fromY; y++) {
-                                        if (isSquareAttacked(fromX, y, king.getColor())) {
+                                    for (int column = toColumn; column <= fromColumn; column++) {
+                                        if (isSquareAttacked(fromRow, column, king.getColor())) {
                                             squaresSafe = false;
                                             break;
                                         }
@@ -281,48 +281,48 @@ public class Board {
                     }
                 }
             }
-
         }
 
-        if (gameMode.equals("Checkers") && pieceToMove instanceof CheckersPiece && !isMultiJump) {
+        // ALWAYS FALSE??? Probably broken
+        if (gameMode == GameMode.CHECKERS && pieceToMove instanceof CheckersPiece && !isMultiJump) {
             boolean hasCaptures = hasAvailableCaptures(isWhiteTurn, gameMode);
-            boolean isCaptureMove = Math.abs(toX - fromX) >= 2 && Math.abs(toY - fromY) >= 2;
+            boolean isCaptureMove = Math.abs(toRow - fromRow) >= 2 && Math.abs(toColumn - fromColumn) >= 2;
             if (hasCaptures && !isCaptureMove) {
                 System.out.println("Invalid: Must capture when possible");
                 return false;
             }
         }
 
-        boolean isValid = pieceToMove.isValidMove(toX, toY, grid);
+        boolean isValid = pieceToMove.isValidMove(toRow, toColumn, grid);
         if (!isValid) {
             System.out.println("Invalid: Piece move invalid for " + pieceToMove.getType());
             return false;
         }
 
-        Piece target = grid[toX][toY];
+        Piece target = grid[toRow][toColumn];
         if (target != null) {
-            if (gameMode.equals("Hybrid") && !((pieceToMove instanceof ChessPiece && target instanceof ChessPiece) ||
+            // Second statement is always false?? Probably broken
+            if (gameMode == GameMode.HYBRID && !((pieceToMove instanceof ChessPiece && target instanceof ChessPiece) ||
                     (pieceToMove instanceof CheckersPiece && target instanceof CheckersPiece))) {
                 System.out.println("Invalid: Hybrid mode capture restriction");
                 return false;
             }
         }
 
-        Piece tempTarget = grid[toX][toY];
-        int originalPieceX = pieceToMove.getX();
-        int originalPieceY = pieceToMove.getY();
+        Piece tempTarget = grid[toRow][toColumn];
+        int originalPieceRow = pieceToMove.getRow();
+        int originalPieceColumn = pieceToMove.getColumn();
 
-        // Simulate move
-        grid[toX][toY] = pieceToMove;
-        grid[fromX][fromY] = null;
-        pieceToMove.setPosition(toX, toY);
+        grid[toRow][toColumn] = pieceToMove;
+        grid[fromRow][fromColumn] = null;
+        pieceToMove.setPosition(toRow, toColumn);
 
         King currentPlayerKing = null;
-        String currentPlayerColor = isWhiteTurn ? "White" : "Black";
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                if (grid[r][c] instanceof King && grid[r][c].getColor().equals(currentPlayerColor)) {
-                    currentPlayerKing = (King) grid[r][c];
+        Color currentPlayerColor = isWhiteTurn ? Color.WHITE : Color.BLACK;
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                if (grid[row][column] instanceof King && grid[row][column].getColor() == currentPlayerColor) {
+                    currentPlayerKing = (King) grid[row][column];
                     break;
                 }
             }
@@ -334,10 +334,9 @@ public class Board {
             kingInCheckAfterMove = currentPlayerKing.isInCheck(grid);
         }
 
-        // Undo move
-        pieceToMove.setPosition(originalPieceX, originalPieceY);
-        grid[fromX][fromY] = pieceToMove;
-        grid[toX][toY] = tempTarget;
+        pieceToMove.setPosition(originalPieceRow, originalPieceColumn);
+        grid[fromRow][fromColumn] = pieceToMove;
+        grid[toRow][toColumn] = tempTarget;
 
         if (kingInCheckAfterMove) {
             System.out.println("Invalid: Move would put or leave King in check.");
@@ -348,59 +347,56 @@ public class Board {
         return true;
     }
 
-    public void movePiece(int fromX, int fromY, int toX, int toY, boolean isMultiJump, int capturedPawnX, int capturedPawnY) {
-        Piece piece = grid[fromX][fromY];
-        System.out.println("Moving piece: " + piece.getType() + " from (" + fromX + ", " + fromY + ") to (" + toX + ", " + toY + ")");
+    public void movePiece(int fromRow, int fromColumn, int toRow, int toColumn, boolean isMultiJump, int capturedPawnRow, int capturedPawnColumn) {
+        Piece piece = grid[fromRow][fromColumn];
+        System.out.println("Moving piece: " + piece.getType() + " from (" + fromRow + ", " + fromColumn + ") to (" + toRow + ", " + toColumn + ")");
 
-        // Handle en passant capture
-        if (capturedPawnX != -1 && capturedPawnY != -1) {
-            System.out.println("Before en passant capture: grid[" + capturedPawnX + "][" + capturedPawnY + "] = " +
-                    (grid[capturedPawnX][capturedPawnY] != null ? grid[capturedPawnX][capturedPawnY].getType() : "null"));
-            grid[capturedPawnX][capturedPawnY] = null;
-            System.out.println(piece.getColor() + " Pawn captures en passant at (" + capturedPawnX + ", " + capturedPawnY + ")");
-            System.out.println("After en passant capture: grid[" + capturedPawnX + "][" + capturedPawnY + "] = " +
-                    (grid[capturedPawnX][capturedPawnY] != null ? grid[capturedPawnX][capturedPawnY].getType() : "null"));
+        if (capturedPawnRow != -1 && capturedPawnColumn != -1) {
+            System.out.println("Before en passant capture: grid[" + capturedPawnRow + "][" + capturedPawnColumn + "] = " +
+                    (grid[capturedPawnRow][capturedPawnColumn] != null ? grid[capturedPawnRow][capturedPawnColumn].getType() : "null"));
+            grid[capturedPawnRow][capturedPawnColumn] = null;
+            System.out.println(piece.getColor() + " Pawn captures en passant at (" + capturedPawnRow + ", " + capturedPawnColumn + ")");
+            System.out.println("After en passant capture: grid[" + capturedPawnRow + "][" + capturedPawnColumn + "] = " +
+                    (grid[capturedPawnRow][capturedPawnColumn] != null ? grid[capturedPawnRow][capturedPawnColumn].getType() : "null"));
         }
 
-        // Handle checkers capture
-        if (piece instanceof CheckersPiece && Math.abs(toX - fromX) >= 2 && Math.abs(toY - fromY) >= 2) {
-            int dx = (toX - fromX) > 0 ? 1 : -1;
-            int dy = (toY - fromY) > 0 ? 1 : -1;
-            int steps = Math.abs(toX - fromX);
+        if (piece instanceof CheckersPiece && Math.abs(toRow - fromRow) >= 2 && Math.abs(toColumn - fromColumn) >= 2) {
+            int dRow = (toRow - fromRow) > 0 ? 1 : -1;
+            int dColumn = (toColumn - fromColumn) > 0 ? 1 : -1;
+            int steps = Math.abs(toRow - fromRow);
             for (int i = 1; i < steps; i++) {
-                int midX = fromX + i * dx;
-                int midY = fromY + i * dy;
-                if (grid[midX][midY] != null && !grid[midX][midY].getColor().equals(piece.getColor())) {
-                    System.out.println(piece.getColor() + " CheckersMan captures " + grid[midX][midY].getColor() + " piece at (" + midX + ", " + midY + ")");
-                    grid[midX][midY] = null;
+                int midRow = fromRow + i * dRow;
+                int midColumn = fromColumn + i * dColumn;
+                if (grid[midRow][midColumn] != null && grid[midRow][midColumn].getColor() != piece.getColor()) {
+                    System.out.println(piece.getColor() + " CheckersMan captures " + grid[midRow][midColumn].getColor() + " piece at (" + midRow + ", " + midColumn + ")");
+                    grid[midRow][midColumn] = null;
                 }
             }
         }
 
-        // Handle castling
-        if (piece instanceof King && !((King) piece).getHasMoved() && fromX == toX) {
-            if ((fromY == 3 && toY == 5) || (fromY == 4 && toY == 6)) {
-                grid[toX][toY] = piece;
-                grid[fromX][fromY] = null;
-                piece.setPosition(toX, toY);
-                Rook kingsideRook = (Rook) grid[fromX][7];
-                int rookNewY = fromY == 3 ? 4 : 5;
-                grid[toX][rookNewY] = kingsideRook;
-                grid[fromX][7] = null;
-                kingsideRook.setPosition(toX, rookNewY);
+        if (piece instanceof King && !((King) piece).getHasMoved() && fromRow == toRow) {
+            if ((fromColumn == 3 && toColumn == 5) || (fromColumn == 4 && toColumn == 6)) {
+                grid[toRow][toColumn] = piece;
+                grid[fromRow][fromColumn] = null;
+                piece.setPosition(toRow, toColumn);
+                Rook kingsideRook = (Rook) grid[fromRow][7];
+                int rookNewColumn = fromColumn == 3 ? 4 : 5;
+                grid[toRow][rookNewColumn] = kingsideRook;
+                grid[fromRow][7] = null;
+                kingsideRook.setPosition(toRow, rookNewColumn);
                 ((King) piece).setHasMoved(true);
                 kingsideRook.setHasMoved(true);
                 System.out.println("Выполнена короткая рокировка (королевский фланг).");
                 return;
-            } else if ((fromY == 3 && toY == 1) || (fromY == 4 && toY == 2)) {
-                grid[toX][toY] = piece;
-                grid[fromX][fromY] = null;
-                piece.setPosition(toX, toY);
-                Rook queensideRook = (Rook) grid[fromX][0];
-                int rookNewY = fromY == 3 ? 2 : 3;
-                grid[toX][rookNewY] = queensideRook;
-                grid[fromX][0] = null;
-                queensideRook.setPosition(toX, rookNewY);
+            } else if ((fromColumn == 3 && toColumn == 1) || (fromColumn == 4 && toColumn == 2)) {
+                grid[toRow][toColumn] = piece;
+                grid[fromRow][fromColumn] = null;
+                piece.setPosition(toRow, toColumn);
+                Rook queensideRook = (Rook) grid[fromRow][0];
+                int rookNewColumn = fromColumn == 3 ? 2 : 3;
+                grid[toRow][rookNewColumn] = queensideRook;
+                grid[fromRow][0] = null;
+                queensideRook.setPosition(toRow, rookNewColumn);
                 ((King) piece).setHasMoved(true);
                 queensideRook.setHasMoved(true);
                 System.out.println("Выполнена длинная рокировка (ферзевый фланг).");
@@ -408,31 +404,28 @@ public class Board {
             }
         }
 
-        // Generic move or capture
-        if (grid[toX][toY] != null) {
-            System.out.println(piece.getColor() + " " + piece.getType() + " captures " + grid[toX][toY].getColor() + " " + grid[toX][toY].getType());
+        if (grid[toRow][toColumn] != null) {
+            System.out.println(piece.getColor() + " " + piece.getType() + " captures " + grid[toRow][toColumn].getColor() + " " + grid[toRow][toColumn].getType());
         }
-        grid[toX][toY] = piece;
-        grid[fromX][fromY] = null;
-        piece.setPosition(toX, toY);
+        grid[toRow][toColumn] = piece;
+        grid[fromRow][fromColumn] = null;
+        piece.setPosition(toRow, toColumn);
 
-        // Handle pawn promotion
         if (piece instanceof Pawn) {
             boolean shouldPromote = false;
-            if (piece.getColor().equals("White") && toX == 7) {
+            if (piece.getColor() == Color.WHITE && toRow == 7) {
                 shouldPromote = true;
-            } else if (piece.getColor().equals("Black") && toX == 0) {
+            } else if (piece.getColor() == Color.BLACK && toRow == 0) {
                 shouldPromote = true;
             }
             if (shouldPromote) {
                 if (game != null) {
-                    game.requestPawnPromotion(toX, toY, piece.getColor());
+                    game.requestPawnPromotion(toRow, toColumn, piece.getColor());
                 }
                 return;
             }
         }
 
-        // Update hasMoved for King or Rook
         if (piece instanceof King) {
             ((King) piece).setHasMoved(true);
         } else if (piece instanceof Rook) {
@@ -440,28 +433,28 @@ public class Board {
         }
     }
 
-    public void promotePawn(int x, int y, String pieceType, String color) {
+    public void promotePawn(int row, int column, String pieceType, Color color) {
         Piece newPiece = switch (pieceType) {
-            case "Queen" -> new Queen(color, x, y);
-            case "Rook" -> new Rook(color, x, y);
-            case "Bishop" -> new Bishop(color, x, y);
-            case "Knight" -> new Knight(color, x, y);
-            default -> new Queen(color, x, y);
+            case "Queen" -> new Queen(color, row, column);
+            case "Rook" -> new Rook(color, row, column);
+            case "Bishop" -> new Bishop(color, row, column);
+            case "Knight" -> new Knight(color, row, column);
+            default -> new Queen(color, row, column);
         };
-        grid[x][y] = newPiece;
-        System.out.println("Пешка превращена в " + pieceType + " на позиции (" + x + ", " + y + ")");
+        grid[row][column] = newPiece;
+        System.out.println("Пешка превращена в " + pieceType + " на позиции (" + row + ", " + column + ")");
     }
 
-    public Piece getPiece(int x, int y) {
-        return grid[x][y];
+    public Piece getPiece(int row, int column) {
+        return grid[row][column];
     }
 
-    public boolean isKingInCheck(String color) {
+    public boolean isKingInCheck(Color color) {
         King king = null;
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                if (grid[r][c] instanceof King && grid[r][c].getColor().equals(color)) {
-                    king = (King) grid[r][c];
+        for (int row = 0; row < BOARD_SIZE; row++) {
+            for (int column = 0; column < BOARD_SIZE; column++) {
+                if (grid[row][column] instanceof King && grid[row][column].getColor() == color) {
+                    king = (King) grid[row][column];
                     break;
                 }
             }
@@ -470,21 +463,21 @@ public class Board {
         return king != null && king.isInCheck(grid);
     }
 
-    public boolean isCheckmate(String color, String gameMode) {
+    public boolean isCheckmate(Color color, GameMode gameMode) {
         if (!isKingInCheck(color)) {
             return false;
         }
 
-        boolean isWhiteTurn = color.equals("White");
+        boolean isWhiteTurn = color == Color.WHITE;
 
-        for (int fromX = 0; fromX < 8; fromX++) {
-            for (int fromY = 0; fromY < 8; fromY++) {
-                Piece piece = grid[fromX][fromY];
+        for (int fromRow = 0; fromRow < BOARD_SIZE; fromRow++) {
+            for (int fromColumn = 0; fromColumn < BOARD_SIZE; fromColumn++) {
+                Piece piece = grid[fromRow][fromColumn];
 
-                if (piece != null && piece.getColor().equals(color)) {
-                    for (int toX = 0; toX < 8; toX++) {
-                        for (int toY = 0; toY < 8; toY++) {
-                            if (isValidMove(fromX, fromY, toX, toY, isWhiteTurn, gameMode, false)) {
+                if (piece != null && piece.getColor() == color) {
+                    for (int toRow = 0; toRow < BOARD_SIZE; toRow++) {
+                        for (int toColumn = 0; toColumn < BOARD_SIZE; toColumn++) {
+                            if (isValidMove(fromRow, fromColumn, toRow, toColumn, isWhiteTurn, gameMode, false)) {
                                 return false;
                             }
                         }
@@ -495,9 +488,9 @@ public class Board {
         return true;
     }
 
-    private String getPieceTextStyle(String pieceColor) {
+    private String getPieceTextStyle(Color pieceColor) {
         return "-fx-font-size: 36px; -fx-font-weight: bold; -fx-text-fill: " +
-                (pieceColor.equals("White") ? "white" : "black") + "; -fx-alignment: center;";
+                (pieceColor == Color.WHITE ? "white" : "black") + "; -fx-alignment: center;";
     }
 
     public Piece[][] getGrid() {
