@@ -77,7 +77,7 @@ public class CheckersMan extends CheckersPiece {
             return isCapture;
         }
 
-        MoveContext context = new MoveContext(grid, -1, -1, false); // En passant not used for checkers
+        MoveContext context = new MoveContext(grid, -1, -1, false);
         return isValidMove(toRow, toColumn, context);
     }
 
@@ -121,106 +121,55 @@ public class CheckersMan extends CheckersPiece {
     @Override
     public List<int[]> getCaptureMoves(int fromRow, int fromColumn, Piece[][] grid, GameMode gameMode) {
         List<int[]> captureMoves = new ArrayList<>();
-        Piece[][] tempGrid = new Piece[8][8];
-        for (int i = 0; i < 8; i++) {
-            System.arraycopy(grid[i], 0, tempGrid[i], 0, 8);
-        }
-        findCaptures(fromRow, fromColumn, tempGrid, captureMoves, gameMode, new ArrayList<>());
-        return captureMoves;
-    }
+        int direction = color == Color.WHITE ? -1 : 1;
 
-    private void findCaptures(int fromRow, int fromColumn, Piece[][] grid, List<int[]> captureMoves, GameMode gameMode, List<int[]> path) {
-        int[] directions = {1, -1};
-        boolean isKingAtStart = isKing;
-        if (!isKing && ((color == Color.WHITE && fromRow == 0) || (color == Color.BLACK && fromRow == 7))) {
-            isKing = true;
-        }
-
-        for (int dRow : directions) {
-            for (int dColumn : directions) {
-                if (!isKing) {
-                    int midRow = fromRow + dRow;
-                    int midColumn = fromColumn + dColumn;
-                    int toRow = fromRow + 2 * dRow;
-                    int toColumn = fromColumn + 2 * dColumn;
-                    if (toRow >= 0 && toRow < 8 && toColumn >= 0 && toColumn < 8 && grid[toRow][toColumn] == null &&
-                            midRow >= 0 && midRow < 8 && midColumn >= 0 && midColumn < 8 &&
-                            grid[midRow][midColumn] != null && grid[midRow][midColumn].getColor() != color &&
-                            isValidCaptureTarget(grid[midRow][midColumn], gameMode)) {
-                        Piece captured = grid[midRow][midColumn];
-                        grid[midRow][midColumn] = null;
-                        grid[toRow][toColumn] = grid[fromRow][fromColumn];
-                        grid[fromRow][fromColumn] = null;
-
-                        List<int[]> newPath = new ArrayList<>(path);
-                        newPath.add(new int[]{toRow, toColumn});
-                        captureMoves.add(new int[]{toRow, toColumn});
-
-                        boolean wasKing = isKing;
-                        if ((color == Color.WHITE && toRow == 0) || (color == Color.BLACK && toRow == 7)) {
-                            isKing = true;
-                        }
-                        findCaptures(toRow, toColumn, grid, captureMoves, gameMode, newPath);
-                        isKing = wasKing;
-
-                        grid[fromRow][fromColumn] = grid[toRow][toColumn];
-                        grid[toRow][toColumn] = null;
-                        grid[midRow][midColumn] = captured;
-                    }
-                } else {
-                    for (int i = 1; i < 8; i++) {
-                        int checkRow = fromRow + i * dRow;
-                        int checkColumn = fromColumn + i * dColumn;
-                        if (checkRow < 0 || checkRow >= 8 || checkColumn < 0 || checkColumn >= 8) {
-                            break;
-                        }
-                        if (grid[checkRow][checkColumn] != null) {
-                            if (grid[checkRow][checkColumn].getColor() == color || !isValidCaptureTarget(grid[checkRow][checkColumn], gameMode)) {
+        if (!isKing) {
+            int[][] directions = {
+                    {direction, -1}, {direction, 1}
+            };
+            for (int[] dir : directions) {
+                int midRow = fromRow + dir[0];
+                int midColumn = fromColumn + dir[1];
+                int toRow = fromRow + 2 * dir[0];
+                int toColumn = fromColumn + 2 * dir[1];
+                if (toRow >= 0 && toRow < 8 && toColumn >= 0 && toColumn < 8 && grid[toRow][toColumn] == null &&
+                        midRow >= 0 && midColumn >= 0 && midColumn < 8 && grid[midRow][midColumn] != null &&
+                        grid[midRow][midColumn].getColor() != color) {
+                    captureMoves.add(new int[]{toRow, toColumn});
+                }
+            }
+        } else {
+            int[][] directions = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
+            for (int[] dir : directions) {
+                for (int i = 1; i < 7; i++) {
+                    int midRow = fromRow + i * dir[0];
+                    int midColumn = fromColumn + i * dir[1];
+                    int toRow = fromRow + (i + 1) * dir[0];
+                    int toColumn = fromColumn + (i + 1) * dir[1];
+                    if (toRow < 0 || toRow >= 8 || toColumn < 0 || toColumn >= 8) break;
+                    if (grid[toRow][toColumn] != null) break;
+                    if (midRow >= 0 && midRow < 8 && midColumn >= 0 && midColumn < 8 &&
+                            grid[midRow][midColumn] != null && grid[midRow][midColumn].getColor() != color) {
+                        boolean valid = true;
+                        for (int j = 1; j < i; j++) {
+                            int checkRow = fromRow + j * dir[0];
+                            int checkColumn = fromColumn + j * dir[1];
+                            if (grid[checkRow][checkColumn] != null) {
+                                valid = false;
                                 break;
                             }
-                            for (int j = 1; j < 8; j++) {
-                                int toRow = checkRow + j * dRow;
-                                int toColumn = checkColumn + j * dColumn;
-                                if (toRow < 0 || toRow >= 8 || toColumn < 0 || toColumn >= 8 || grid[toRow][toColumn] != null) {
-                                    break;
-                                }
-                                boolean pathClear = true;
-                                for (int k = 1; k < j; k++) {
-                                    int pathRow = checkRow + k * dRow;
-                                    int pathColumn = checkColumn + k * dColumn;
-                                    if (pathRow < 0 || pathRow >= 8 || pathColumn < 0 || pathColumn >= 8 || grid[pathRow][pathColumn] != null) {
-                                        pathClear = false;
-                                        break;
-                                    }
-                                }
-                                if (!pathClear) {
-                                    continue;
-                                }
-                                Piece captured = grid[checkRow][checkColumn];
-                                grid[checkRow][checkColumn] = null;
-                                grid[toRow][toColumn] = grid[fromRow][fromColumn];
-                                grid[fromRow][fromColumn] = null;
-
-                                List<int[]> newPath = new ArrayList<>(path);
-                                newPath.add(new int[]{toRow, toColumn});
-                                captureMoves.add(new int[]{toRow, toColumn});
-
-                                findCaptures(toRow, toColumn, grid, captureMoves, gameMode, newPath);
-
-                                grid[fromRow][fromColumn] = grid[toRow][toColumn];
-                                grid[toRow][toColumn] = null;
-                                grid[checkRow][checkColumn] = captured;
-                            }
-                            break;
+                        }
+                        if (valid) {
+                            captureMoves.add(new int[]{toRow, toColumn});
                         }
                     }
                 }
             }
         }
-        isKing = isKingAtStart;
+        return captureMoves;
     }
 
     private boolean isValidCaptureTarget(Piece piece, GameMode gameMode) {
-        return gameMode != GameMode.HYBRID || piece instanceof CheckersPiece;
+        return true; // All pieces are valid capture targets in CHECKERS mode
     }
 }

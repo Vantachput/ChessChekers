@@ -1,17 +1,15 @@
 package org.sillylabs;
 
 import javafx.application.Application;
-import javafx.fxml.FXML;
-import javafx.scene.control.Label;
 import javafx.stage.Stage;
+import org.sillylabs.gui.GameGUI;
 
 public class Main extends Application {
-
     @Override
     public void start(Stage primaryStage) {
-        Game game = new Game();
-        org.sillylabs.gui.GameGUI gui = new org.sillylabs.gui.GameGUI(game, primaryStage);
-        primaryStage.setTitle("Chess-Checkers Game");
+        GameCoordinator coordinator = new GameCoordinator();
+        GameGUI gui = new GameGUI(coordinator, primaryStage);
+        primaryStage.setTitle("Chess-Checkers");
         primaryStage.show();
     }
 

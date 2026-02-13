@@ -19,17 +19,14 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.sillylabs.*;
-import org.sillylabs.pieces.CheckersPiece;
-import org.sillylabs.pieces.Color;
-import org.sillylabs.pieces.Piece;
-import org.sillylabs.pieces.MoveContext;
+import org.sillylabs.pieces.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class GameGUI implements GameObserver {
-    private final Game game;
+    private final GameCoordinator coordinator;
     private final Stage primaryStage;
     private GridPane boardPane;
     private Scene scene;
@@ -78,10 +75,10 @@ public class GameGUI implements GameObserver {
         pieceImageCache.putIfAbsent("wp.png", new Image(GameGUI.class.getResource("/pieces/wp.png").toExternalForm()));
     }
 
-    public GameGUI(Game game, Stage primaryStage) {
-        this.game = game;
+    public GameGUI(GameCoordinator coordinator, Stage primaryStage) {
+        this.coordinator = coordinator;
         this.primaryStage = primaryStage;
-        game.addObserver(this);
+        coordinator.addObserver(this);
         primaryStage.setWidth(800);
         primaryStage.setHeight(600);
         setupGUI();
@@ -113,7 +110,7 @@ public class GameGUI implements GameObserver {
         ));
 
         ComboBox<GameMode> modeSelector = new ComboBox<>();
-        modeSelector.getItems().addAll(GameMode.values());
+        modeSelector.getItems().addAll(GameMode.CHESS, GameMode.CHECKERS);
         modeSelector.setValue(GameMode.CHESS);
         modeSelector.styleProperty().bind(Bindings.createStringBinding(
                 () -> "-fx-font-size: " + Math.max(12, padding.get() * 1.4) + "px;",
@@ -137,8 +134,8 @@ public class GameGUI implements GameObserver {
         startButton.setOnAction(e -> {
             gameOver = false;
             setupBoard();
-            game.start(modeSelector.getValue());
-            primaryStage.setScene(scene); // Fix: Transition to game board scene
+            coordinator.start(modeSelector.getValue());
+            primaryStage.setScene(scene);
         });
 
         Label instruction = new Label("Выберите режим игры и нажмите 'Начать игру'");
@@ -282,7 +279,7 @@ public class GameGUI implements GameObserver {
             selectedRow = -1;
             selectedColumn = -1;
             setupGUI();
-            onStatusUpdate((game.isWhiteTurn() ? Color.BLACK : Color.WHITE) + " wins by resignation!");
+            onStatusUpdate((coordinator.isWhiteTurn() ? Color.BLACK : Color.WHITE) + " wins by resignation!");
         });
         GridPane.setColumnSpan(resignButton, 8);
         boardPane.add(resignButton, 0, 9);
@@ -315,14 +312,14 @@ public class GameGUI implements GameObserver {
     }
 
     private void handleClick(int row, int column) {
-        if (gameOver || game.isWaitingForPromotion()) {
+        if (gameOver || coordinator.isWaitingForPromotion()) {
             return;
         }
 
-        Piece piece = game.getBoard().getPiece(row, column);
+        Piece piece = coordinator.getBoardState()[row][column];
 
-        if (selectedRow == -1 && piece != null && piece.getColor() == (game.isWhiteTurn() ? Color.WHITE : Color.BLACK)) {
-            if (game.isMultiJump() && (row != game.getMultiJumpFromRow() || column != game.getMultiJumpFromColumn())) {
+        if (selectedRow == -1 && piece != null && piece.getColor() == (coordinator.isWhiteTurn() ? Color.WHITE : Color.BLACK)) {
+            if (coordinator.isMultiJump() && (row != coordinator.getMultiJumpFromRow() || column != coordinator.getMultiJumpFromColumn())) {
                 onStatusUpdate("Complete the multi-jump capture!");
                 return;
             }
@@ -331,20 +328,20 @@ public class GameGUI implements GameObserver {
             updateBoardDisplay();
             highlightPossibleMoves(row, column);
         } else if (selectedRow != -1) {
-            if (row == selectedRow && column == selectedColumn && game.isMultiJump()) {
-                game.makeMove(selectedRow, selectedColumn, row, column);
+            if (row == selectedRow && column == selectedColumn && coordinator.isMultiJump()) {
+                coordinator.makeMove(selectedRow, selectedColumn, row, column);
                 selectedRow = -1;
                 selectedColumn = -1;
                 updateBoardDisplay();
             } else {
-                boolean moveMade = game.makeMove(selectedRow, selectedColumn, row, column);
-                if (moveMade && !game.isWaitingForPromotion()) {
+                boolean moveMade = coordinator.makeMove(selectedRow, selectedColumn, row, column);
+                if (moveMade && !coordinator.isWaitingForPromotion()) {
                     selectedRow = -1;
                     selectedColumn = -1;
                     updateBoardDisplay();
                     updateTurnLabel();
                     updateMoveHistory();
-                } else if (moveMade && game.isMultiJump()) {
+                } else if (moveMade && coordinator.isMultiJump()) {
                     selectedRow = row;
                     selectedColumn = column;
                     updateBoardDisplay();
@@ -359,7 +356,7 @@ public class GameGUI implements GameObserver {
     }
 
     private void highlightPossibleMoves(int fromRow, int fromColumn) {
-        Piece piece = game.getBoard().getPiece(fromRow, fromColumn);
+        Piece piece = coordinator.getBoardState()[fromRow][fromColumn];
         if (piece == null) return;
 
         for (int row = 0; row < 8; row++) {
@@ -367,25 +364,25 @@ public class GameGUI implements GameObserver {
                 Button square = getSquareButton(row, column);
                 if (square == null) continue;
 
-                if (game.getBoard().isValidMove(fromRow, fromColumn, row, column, game.isWhiteTurn(), game.getGameMode(), game.isMultiJump())) {
+                if (coordinator.isValidMove(fromRow, fromColumn, row, column)) {
                     boolean isCapture = false;
                     if (piece instanceof CheckersPiece checkersPiece) {
-                        List<int[]> captureMoves = checkersPiece.getCaptureMoves(fromRow, fromColumn, game.getGrid(), game.getGameMode());
+                        List<int[]> captureMoves = checkersPiece.getCaptureMoves(fromRow, fromColumn, coordinator.getBoardState(), coordinator.getGameMode());
                         for (int[] move : captureMoves) {
                             if (move[0] == row && move[1] == column) {
                                 isCapture = true;
                                 break;
                             }
                         }
-                    } else if (piece instanceof org.sillylabs.pieces.Pawn &&
+                    } else if (piece instanceof Pawn &&
                             Math.abs(column - fromColumn) == 1 &&
-                            game.getGrid()[row][column] == null &&
-                            row == game.getEnPassantTargetRow() &&
-                            column == game.getEnPassantTargetColumn() &&
-                            game.isEnPassantPossible()) {
+                            coordinator.getBoardState()[row][column] == null &&
+                            row == coordinator.getEnPassantTargetRow() &&
+                            column == coordinator.getEnPassantTargetColumn() &&
+                            coordinator.isEnPassantPossible()) {
                         isCapture = true;
-                    } else if (game.getGrid()[row][column] != null &&
-                            game.getGrid()[row][column].getColor() != piece.getColor()) {
+                    } else if (coordinator.getBoardState()[row][column] != null &&
+                            coordinator.getBoardState()[row][column].getColor() != piece.getColor()) {
                         isCapture = true;
                     }
 
@@ -438,7 +435,7 @@ public class GameGUI implements GameObserver {
     }
 
     private void updateBoardDisplay() {
-        Piece[][] grid = game.getGrid();
+        Piece[][] grid = coordinator.getBoardState();
 
         for (int row = 0; row < 8; row++) {
             for (int column = 0; column < 8; column++) {
@@ -508,7 +505,7 @@ public class GameGUI implements GameObserver {
     }
 
     private void updateMoveHistory() {
-        List<String> moves = game.getMoveHistory();
+        List<String> moves = coordinator.getMoveHistory();
         StringBuilder whiteMoves = new StringBuilder();
         StringBuilder blackMoves = new StringBuilder();
 
@@ -525,7 +522,7 @@ public class GameGUI implements GameObserver {
     }
 
     private void updateTurnLabel() {
-        turnLabel.setText("Turn: " + (game.isWhiteTurn() ? "White" : "Black"));
+        turnLabel.setText("Turn: " + (coordinator.isWhiteTurn() ? "White" : "Black"));
     }
 
     private void showPromotionDialog(int row, int column, Color color) {
@@ -550,7 +547,7 @@ public class GameGUI implements GameObserver {
         Button confirmButton = new Button("Confirm");
         confirmButton.setStyle("-fx-font-size: 12px; -fx-background-color: #3498DB; -fx-text-fill: white; -fx-background-radius: 5px;");
         confirmButton.setOnAction(e -> {
-            game.completePawnPromotion(pieceSelector.getValue());
+            coordinator.completePawnPromotion(pieceSelector.getValue());
             dialog.close();
         });
 
