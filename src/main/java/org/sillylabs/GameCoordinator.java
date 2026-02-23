@@ -81,7 +81,8 @@ public class GameCoordinator implements GameStateView {
 
         int capturedPawnRow = -1, capturedPawnColumn = -1;
         if (specialMoveHandler.isEnPassantMove(board, fromRow, fromColumn, toRow, toColumn)) {
-            int direction = board.getPieceAt(fromRow, fromColumn).getColor() == Color.WHITE ? 1 : -1;
+            // ВИПРАВЛЕНО: напрямок змінено. Білі йдуть вгору (-1), чорні вниз (+1)
+            int direction = board.getPieceAt(fromRow, fromColumn).getColor() == Color.WHITE ? -1 : 1;
             capturedPawnRow = toRow - direction;
             capturedPawnColumn = toColumn;
         }
@@ -256,4 +257,5 @@ public class GameCoordinator implements GameStateView {
     public List<String> getMoveHistory() {
         return new ArrayList<>(moveHistory);
     }
+
 }

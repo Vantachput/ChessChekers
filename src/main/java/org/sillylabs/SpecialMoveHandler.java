@@ -20,6 +20,11 @@ public class SpecialMoveHandler {
         enPassantTargetColumn = -1;
         enPassantPossible = false;
     }
+    public boolean isCastlingMove(Piece piece, int fromColumn, int toColumn) {
+        return piece instanceof King && Math.abs(fromColumn - toColumn) == 2;
+    }
+
+    // Цей метод потрібно викликати в GameCoordinator ПІСЛЯ того, як перемістився король
 
     public boolean isMultiJump() {
         return isMultiJump;
@@ -52,7 +57,8 @@ public class SpecialMoveHandler {
     }
 
     public void updateEnPassant(Board board, int fromRow, int toRow, int toColumn) {
-        Piece piece = board.getPieceAt(fromRow, toColumn);
+        // ВИПРАВЛЕНО: беремо фігуру з НОВОЇ клітинки (toRow), а не з fromRow
+        Piece piece = board.getPieceAt(toRow, toColumn);
         enPassantPossible = false;
         enPassantTargetRow = -1;
         enPassantTargetColumn = -1;

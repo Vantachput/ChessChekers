@@ -22,12 +22,37 @@ public class King extends ChessPiece {
         int dRow = Math.abs(toRow - row);
         int dColumn = Math.abs(toColumn - column);
 
+        // Звичайний хід короля (на 1 клітинку)
         if (dRow <= 1 && dColumn <= 1) {
-            return grid[toRow][toColumn] == null || grid[toRow][toColumn].getColor() != color;
+            Piece target = grid[toRow][toColumn];
+            return target == null || target.getColor() != color;
         }
 
-        if (!hasMoved && dRow == 0 && Math.abs(dColumn) == 2) {
-            return (column == 3 && (toColumn == 1 || toColumn == 5)) || (column == 4 && (toColumn == 2 || toColumn == 6));
+        // СПЕЦІАЛЬНИЙ ХІД: Рокировка (Король стрибає на 2 клітинки по горизонталі)
+        // Умова: Король ще жодного разу не ходив
+        if (dRow == 0 && dColumn == 2 && !this.getHasMoved()) {
+
+            // Коротка рокировка (вправо)
+            if (toColumn == column + 2) {
+                Piece rook = grid[row][column + 3];
+                // Перевіряємо, чи стоїть на своєму місці тура, чи не ходила вона, і чи ПУСТІ 2 поля між ними
+                if (rook instanceof Rook && !((Rook) rook).getHasMoved() &&
+                        grid[row][column + 1] == null &&
+                        grid[row][column + 2] == null) {
+                    return true;
+                }
+            }
+            // Довга рокировка (вліво)
+            else if (toColumn == column - 2) {
+                Piece rook = grid[row][column - 4];
+                // Перевіряємо туру і ПУСТІ 3 поля між королем та турою
+                if (rook instanceof Rook && !((Rook) rook).getHasMoved() &&
+                        grid[row][column - 1] == null &&
+                        grid[row][column - 2] == null &&
+                        grid[row][column - 3] == null) {
+                    return true;
+                }
+            }
         }
 
         return false;
