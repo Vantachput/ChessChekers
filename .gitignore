@@ -1,4 +1,7 @@
 .gradle
+.idea/
+javafx-sdk-21.0.7/
+*.class
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
