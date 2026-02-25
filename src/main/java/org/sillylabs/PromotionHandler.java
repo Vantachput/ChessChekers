@@ -22,7 +22,7 @@ public class PromotionHandler {
     public void requestPromotion(Board board, int row, int column, Color color, GameCoordinator coordinator) {
         Piece piece = board.getPieceAt(row, column);
         if (piece instanceof Pawn) {
-            boolean shouldPromote = (piece.getColor() == Color.WHITE && row == 7) || (piece.getColor() == Color.BLACK && row == 0);
+            boolean shouldPromote = (piece.getColor() == Color.WHITE && row == 0) || (piece.getColor() == Color.BLACK && row == 7);
             if (shouldPromote) {
                 waitingForPromotion = true;
                 promotionRow = row;

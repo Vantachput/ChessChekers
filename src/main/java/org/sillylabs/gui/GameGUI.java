@@ -24,6 +24,8 @@ import org.sillylabs.pieces.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javafx.scene.control.Alert;
+
 
 public class GameGUI implements GameObserver {
     private final GameCoordinator coordinator;
@@ -79,8 +81,8 @@ public class GameGUI implements GameObserver {
         this.coordinator = coordinator;
         this.primaryStage = primaryStage;
         coordinator.addObserver(this);
-        primaryStage.setWidth(800);
-        primaryStage.setHeight(600);
+        primaryStage.setWidth(1000);
+        primaryStage.setHeight(800);
         setupGUI();
     }
 
@@ -102,7 +104,7 @@ public class GameGUI implements GameObserver {
         ));
         root.spacingProperty().bind(padding);
 
-        Label title = new Label("Шахматы-Шашки");
+        Label title = new Label("Шахи-Шашки");
         title.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
         title.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Arial", FontWeight.BOLD, padding.get() * 2.4),
@@ -117,7 +119,7 @@ public class GameGUI implements GameObserver {
                 padding
         ));
 
-        Button startButton = new Button("Начать игру");
+        Button startButton = new Button("Почати гру");
         startButton.styleProperty().bind(Bindings.createStringBinding(
                 () -> {
                     double fontSize = Math.max(14, padding.get() * 1.6);
@@ -138,7 +140,7 @@ public class GameGUI implements GameObserver {
             primaryStage.setScene(scene);
         });
 
-        Label instruction = new Label("Выберите режим игры и нажмите 'Начать игру'");
+        Label instruction = new Label("Виберіть режим гри та натисніть 'Почати гру'");
         instruction.setStyle("-fx-text-fill: white;");
         instruction.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Arial", Math.max(12, padding.get() * 1.4)),
@@ -149,8 +151,8 @@ public class GameGUI implements GameObserver {
 
         Scene startScene = new Scene(root);
         primaryStage.setScene(startScene);
-        primaryStage.setMinWidth(600);
-        primaryStage.setMinHeight(500);
+        primaryStage.setMinWidth(800);
+        primaryStage.setMinHeight(700);
 
         boardPane = new GridPane();
         boardPane.setAlignment(Pos.CENTER);
@@ -190,7 +192,7 @@ public class GameGUI implements GameObserver {
         movesPanel.spacingProperty().bind(padding);
         movesPanel.prefWidthProperty().bind(primaryStage.widthProperty().multiply(0.25));
 
-        Label whiteMovesLabel = new Label("Ходы Белых");
+        Label whiteMovesLabel = new Label("Ходи Білих");
         whiteMovesLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
         whiteMovesLabel.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Arial", FontWeight.BOLD, Math.max(12, padding.get() * 1.4)),
@@ -201,12 +203,17 @@ public class GameGUI implements GameObserver {
         whiteMovesArea.setEditable(false);
         whiteMovesArea.setStyle("-fx-background-color: #ECF0F1; -fx-text-fill: black;");
         whiteMovesArea.prefHeightProperty().bind(primaryStage.heightProperty().multiply(0.4));
+        // Робимо шрифт меншим та моноширинним
         whiteMovesArea.fontProperty().bind(Bindings.createObjectBinding(
-                () -> Font.font("Arial", Math.max(10, padding.get() * 1.2)),
+                () -> Font.font("Monospaced", Math.max(10, padding.get() * 0.9)),
                 padding
         ));
+        // Додаємо автопрокрутку до останнього ходу
+        whiteMovesArea.textProperty().addListener((observable, oldValue, newValue) -> {
+            whiteMovesArea.setScrollTop(Double.MAX_VALUE);
+        });
 
-        Label blackMovesLabel = new Label("Ходы Чёрных");
+        Label blackMovesLabel = new Label("Ходи Чорних");
         blackMovesLabel.setStyle("-fx-text-fill: white; -fx-font-weight: bold;");
         blackMovesLabel.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Arial", FontWeight.BOLD, Math.max(12, padding.get() * 1.4)),
@@ -217,10 +224,15 @@ public class GameGUI implements GameObserver {
         blackMovesArea.setEditable(false);
         blackMovesArea.setStyle("-fx-background-color: #ECF0F1; -fx-text-fill: black;");
         blackMovesArea.prefHeightProperty().bind(primaryStage.heightProperty().multiply(0.4));
+        // Робимо шрифт меншим та моноширинним
         blackMovesArea.fontProperty().bind(Bindings.createObjectBinding(
-                () -> Font.font("Arial", Math.max(10, padding.get() * 1.2)),
+                () -> Font.font("Monospaced", Math.max(10, padding.get() * 0.9)),
                 padding
         ));
+        // Додаємо автопрокрутку до останнього ходу
+        blackMovesArea.textProperty().addListener((observable, oldValue, newValue) -> {
+            blackMovesArea.setScrollTop(Double.MAX_VALUE);
+        });
 
         movesPanel.getChildren().addAll(whiteMovesLabel, whiteMovesArea, blackMovesLabel, blackMovesArea);
 
@@ -263,26 +275,67 @@ public class GameGUI implements GameObserver {
 
         addBoardCoordinates(squareSize);
 
-        Button resignButton = new Button("Сдаться");
-        resignButton.styleProperty().bind(Bindings.createStringBinding(
+        Button drawButton = new Button("Нічия");
+        Button resignButton = new Button("Здатися");
+        Button mainMenuButton = new Button("Головне меню");
+
+        // Загальний стиль для кнопок, щоб вони масштабувалися разом з вікном
+        javafx.beans.binding.StringBinding buttonStyle = Bindings.createStringBinding(
                 () -> String.format(
-                        "-fx-font-size: %.1fpx; -fx-background-color: #E74C3C; -fx-text-fill: white; " +
-                                "-fx-background-radius: 5px; -fx-padding: %.1fpx %.1fpx;",
+                        "-fx-font-size: %.1fpx; -fx-text-fill: white; -fx-background-radius: 5px; -fx-padding: %.1fpx %.1fpx; -fx-cursor: hand;",
                         Math.max(10, squareSize.get() / 5),
                         Math.max(2, squareSize.get() / 5),
                         Math.max(4, squareSize.get() / 2)
                 ),
                 squareSize
-        ));
+        );
+
+        // Надаємо різні кольори кнопкам
+        drawButton.styleProperty().bind(Bindings.concat("-fx-background-color: #F39C12; ", buttonStyle));
+        resignButton.styleProperty().bind(Bindings.concat("-fx-background-color: #E74C3C; ", buttonStyle));
+        mainMenuButton.styleProperty().bind(Bindings.concat("-fx-background-color: #3498DB; ", buttonStyle));
+
+        // Логіка кнопки "Нічия"
+        drawButton.setOnAction(e -> {
+            if (!gameOver) {
+                gameOver = true;
+                selectedRow = -1;
+                selectedColumn = -1;
+                onGameOver(true, null); // Передача null викличе Нічию в нашому вікні Alert
+            }
+        });
+
+        // Логіка кнопки "Здатися"
         resignButton.setOnAction(e -> {
+            if (!gameOver) {
+                gameOver = true;
+                selectedRow = -1;
+                selectedColumn = -1;
+                // Якщо хід білих, і вони здаються - перемагають чорні, і навпаки
+                Color winner = coordinator.isWhiteTurn() ? Color.BLACK : Color.WHITE;
+                onGameOver(true, winner);
+            }
+        });
+
+        // Логіка кнопки "Головне меню"
+        mainMenuButton.setOnAction(e -> {
             gameOver = true;
             selectedRow = -1;
             selectedColumn = -1;
-            setupGUI();
-            onStatusUpdate((coordinator.isWhiteTurn() ? Color.BLACK : Color.WHITE) + " wins by resignation!");
+            setupGUI(); // Перемальовує інтерфейс і повертає на стартовий екран
         });
-        GridPane.setColumnSpan(resignButton, 8);
-        boardPane.add(resignButton, 0, 9);
+
+        // Спеціальна "розпірка" (spacer), яка буде відштовхувати Головне меню вправо
+        javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
+        javafx.scene.layout.HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+
+        HBox buttonBox = new HBox(10); // 10 пікселів відстань між кнопками зліва
+        buttonBox.setAlignment(Pos.CENTER_LEFT);
+        buttonBox.setPadding(new Insets(10, 0, 0, 0)); // Відступ зверху від ігрової дошки
+        buttonBox.getChildren().addAll(drawButton, resignButton, spacer, mainMenuButton);
+
+        GridPane.setColumnSpan(buttonBox, 8);
+        boardPane.add(buttonBox, 0, 9);
     }
 
     private void addBoardCoordinates(DoubleBinding squareSize) {
@@ -320,7 +373,7 @@ public class GameGUI implements GameObserver {
 
         if (selectedRow == -1 && piece != null && piece.getColor() == (coordinator.isWhiteTurn() ? Color.WHITE : Color.BLACK)) {
             if (coordinator.isMultiJump() && (row != coordinator.getMultiJumpFromRow() || column != coordinator.getMultiJumpFromColumn())) {
-                onStatusUpdate("Complete the multi-jump capture!");
+                onStatusUpdate("Завершіть серію взяттів!");
                 return;
             }
             selectedRow = row;
@@ -430,7 +483,25 @@ public class GameGUI implements GameObserver {
     public void onGameOver(boolean isGameOver, Color winner) {
         this.gameOver = isGameOver;
         if (isGameOver) {
-            statusLabel.setText("Game Over! " + winner + " wins!");
+            String title = "Кінець гри";
+            String headerText;
+
+            if (winner == null) {
+                // Якщо winner == null, значить це Нічия
+                headerText = "Нічия!";
+                statusLabel.setText("Гра закінчена: Нічия!");
+            } else {
+                String winnerText = (winner == Color.WHITE) ? "Білі" : "Чорні";
+                headerText = "Перемога " + winnerText + "!";
+                statusLabel.setText("Гра закінчена: Перемога " + winnerText + "!");
+            }
+
+            // Показуємо спливаюче вікно
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle(title);
+            alert.setHeaderText(headerText);
+            alert.setContentText("Щоб почати нову гру, змініть режим та натисніть 'Почати гру'.");
+            alert.showAndWait();
         }
     }
 
@@ -522,32 +593,40 @@ public class GameGUI implements GameObserver {
     }
 
     private void updateTurnLabel() {
-        turnLabel.setText("Turn: " + (coordinator.isWhiteTurn() ? "White" : "Black"));
+        turnLabel.setText("Хід: " + (coordinator.isWhiteTurn() ? "Білі" : "Чорні"));
     }
 
     private void showPromotionDialog(int row, int column, Color color) {
         Stage dialog = new Stage();
         dialog.initModality(Modality.APPLICATION_MODAL);
         dialog.initOwner(primaryStage);
-        dialog.setTitle("Pawn Promotion");
+        dialog.setTitle("Перетворення пішака");
 
         VBox dialogVbox = new VBox(10);
         dialogVbox.setAlignment(Pos.CENTER);
         dialogVbox.setPadding(new Insets(20));
         dialogVbox.setStyle("-fx-background-color: #34495E;");
 
-        Label label = new Label("Choose a piece to promote to:");
+        Label label = new Label("Виберіть фігуру для перетворення:");
         label.setStyle("-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 14px;");
 
         ComboBox<String> pieceSelector = new ComboBox<>();
-        pieceSelector.getItems().addAll("Queen", "Rook", "Bishop", "Knight");
-        pieceSelector.setValue("Queen");
+        pieceSelector.getItems().addAll("Ферзь", "Тура", "Слон", "Кінь");
+        pieceSelector.setValue("Ферзь");
         pieceSelector.setStyle("-fx-font-size: 12px;");
 
-        Button confirmButton = new Button("Confirm");
+        Button confirmButton = new Button("Підтвердити");
         confirmButton.setStyle("-fx-font-size: 12px; -fx-background-color: #3498DB; -fx-text-fill: white; -fx-background-radius: 5px;");
         confirmButton.setOnAction(e -> {
-            coordinator.completePawnPromotion(pieceSelector.getValue());
+            String selected = pieceSelector.getValue();
+            String englishPieceType = switch (selected) {
+                case "Ферзь" -> "Queen";
+                case "Тура" -> "Rook";
+                case "Слон" -> "Bishop";
+                case "Кінь" -> "Knight";
+                default -> "Queen";
+            };
+            coordinator.completePawnPromotion(englishPieceType);
             dialog.close();
         });
 

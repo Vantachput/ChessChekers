@@ -2,7 +2,9 @@ package org.sillylabs;
 
 import org.sillylabs.pieces.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GameCoordinator implements GameStateView {
     private final Board board;
@@ -14,6 +16,9 @@ public class GameCoordinator implements GameStateView {
     private final List<String> moveHistory;
     private final List<GameObserver> observers;
 
+    // Історія позицій для правила трикратного повторення
+    private final Map<String, Integer> positionCounts;
+
     public GameCoordinator() {
         board = new Board();
         turnManager = new TurnManager();
@@ -21,6 +26,7 @@ public class GameCoordinator implements GameStateView {
         promotionHandler = new PromotionHandler();
         moveHistory = new ArrayList<>();
         observers = new ArrayList<>();
+        positionCounts = new HashMap<>();
     }
 
     public void addObserver(GameObserver observer) {
@@ -35,12 +41,17 @@ public class GameCoordinator implements GameStateView {
         this.gameMode = mode;
         board.setupBoard(mode);
         moveHistory.clear();
-        // Removed turnManager.switchTurn(); to ensure white starts
+        positionCounts.clear(); // Очищуємо історію позицій при старті
+
         gameRules = switch (mode) {
             case CHESS -> new ChessRules();
             case CHECKERS -> new CheckersRules();
         };
         gameRules.setGameCoordinator(this);
+
+        // Записуємо першу позицію
+        recordPosition(false);
+
         notifyBoardChanged();
         notifyStatus("");
     }
@@ -51,25 +62,32 @@ public class GameCoordinator implements GameStateView {
 
     public boolean makeMove(int fromRow, int fromColumn, int toRow, int toColumn) {
         if (promotionHandler.isWaitingForPromotion()) {
-            notifyStatus("Сначала выберите фигуру для превращения пешки!");
+            notifyStatus("Спочатку виберіть фігуру для перетворення пішака!");
             return false;
         }
 
         if (specialMoveHandler.isMultiJump() && (fromRow != specialMoveHandler.getMultiJumpFromRow() || fromColumn != specialMoveHandler.getMultiJumpFromColumn())) {
-            notifyStatus("Завершайте серию взятий или подтвердите окончание хода!");
+            notifyStatus("Завершіть серію взяттів або підтвердіть закінчення ходу!");
             return false;
         }
 
         if (specialMoveHandler.completeMultiJump(fromRow, fromColumn, toRow, toColumn)) {
             turnManager.switchTurn();
-            notifyStatus("Ход завершен.");
+            notifyStatus("Хід завершено.");
             notifyBoardChanged();
             return true;
         }
 
         if (!isValidMove(fromRow, fromColumn, toRow, toColumn)) {
-            notifyStatus("Неверный ход");
+            notifyStatus("Неправильний хід");
             return false;
+        }
+
+        // Перевіряємо, чи є хід "незворотним" (хід пішаком або взяття) для скидання лічильника позицій
+        boolean irreversibleMove = false;
+        Piece pieceToMove = board.getPieceAt(fromRow, fromColumn);
+        if (pieceToMove instanceof Pawn || board.getPieceAt(toRow, toColumn) != null) {
+            irreversibleMove = true;
         }
 
         long moveEndTime = System.currentTimeMillis();
@@ -80,8 +98,9 @@ public class GameCoordinator implements GameStateView {
         moveHistory.add(moveRecord);
 
         int capturedPawnRow = -1, capturedPawnColumn = -1;
-        if (specialMoveHandler.isEnPassantMove(board, fromRow, fromColumn, toRow, toColumn)) {
-            // ВИПРАВЛЕНО: напрямок змінено. Білі йдуть вгору (-1), чорні вниз (+1)
+        boolean isEnPassant = specialMoveHandler.isEnPassantMove(board, fromRow, fromColumn, toRow, toColumn);
+        if (isEnPassant) {
+            irreversibleMove = true; // Взяття на проході - це теж незворотний хід
             int direction = board.getPieceAt(fromRow, fromColumn).getColor() == Color.WHITE ? -1 : 1;
             capturedPawnRow = toRow - direction;
             capturedPawnColumn = toColumn;
@@ -102,27 +121,108 @@ public class GameCoordinator implements GameStateView {
 
             Color currentPlayerColor = turnManager.getCurrentPlayerColor();
             Color previousPlayerColor = currentPlayerColor == Color.WHITE ? Color.BLACK : Color.WHITE;
+            String prevPlayerStr = previousPlayerColor == Color.WHITE ? "Білі" : "Чорні";
+            String currPlayerStr = currentPlayerColor == Color.WHITE ? "Білий" : "Чорний";
 
-            if (specialMoveHandler.isEnPassantMove(board, fromRow, fromColumn, toRow, toColumn)) {
-                notifyStatus("Взято на проходе!");
-            } else if (gameMode == GameMode.CHESS && gameRules.isKingInCheck(board, currentPlayerColor)) {
-                if (gameRules.isGameOver(board, currentPlayerColor)) {
-                    notifyStatus("Шах и мат! " + previousPlayerColor + " победили!");
-                    notifyGameOver(true, previousPlayerColor);
-                } else {
-                    notifyStatus(currentPlayerColor + " король под шахом!");
-                }
-            } else if (gameMode == GameMode.CHECKERS && gameRules.isGameOver(board, currentPlayerColor)) {
-                notifyStatus("Игра окончена! " + previousPlayerColor + " победили!");
-                notifyGameOver(true, previousPlayerColor);
-            } else {
-                notifyStatus("");
-            }
+            checkGameOverAndDraws(currentPlayerColor, previousPlayerColor, currPlayerStr, prevPlayerStr, isEnPassant, irreversibleMove);
+
         } else if (specialMoveHandler.isMultiJump()) {
-            notifyStatus("Продолжайте взятие или подтвердите окончание хода!");
+            notifyStatus("Продовжуйте взяття або підтвердіть закінчення ходу!");
         }
         return true;
     }
+
+    // --- НОВІ МЕТОДИ ЛОГІКИ ЗАВЕРШЕННЯ ТА НІЧИЇ ---
+
+    private void checkGameOverAndDraws(Color currentPlayerColor, Color previousPlayerColor, String currPlayerStr, String prevPlayerStr, boolean isEnPassant, boolean irreversibleMove) {
+        // Записуємо позицію
+        recordPosition(irreversibleMove);
+
+        // Перевірка на трикратне повторення (Працює і для Шахів, і для Шашок)
+        if (isThreefoldRepetition()) {
+            notifyStatus("Нічия! Трикратне повторення позиції.");
+            notifyGameOver(true, null);
+            return;
+        }
+
+        if (gameMode == GameMode.CHESS && gameRules instanceof ChessRules chessRules) {
+            // Перевірка на нестачу матеріалу
+            if (chessRules.isInsufficientMaterial(board)) {
+                notifyStatus("Нічия! Недостатньо матеріалу для мату.");
+                notifyGameOver(true, null);
+                return;
+            }
+
+            // Перевірка чи є доступні ходи
+            if (!chessRules.hasLegalMoves(board, currentPlayerColor)) {
+                if (chessRules.isKingInCheck(board, currentPlayerColor)) {
+                    // Якщо немає ходів і під шахом - це Мат
+                    notifyStatus("Шах і мат! Перемога " + prevPlayerStr + "!");
+                    notifyGameOver(true, previousPlayerColor);
+                } else {
+                    // Якщо немає ходів і НЕ під шахом - це Пат (Нічия)
+                    notifyStatus("Нічия! Пат на дошці.");
+                    notifyGameOver(true, null);
+                }
+                return;
+            } else if (chessRules.isKingInCheck(board, currentPlayerColor)) {
+                notifyStatus(currPlayerStr + " король під шахом!");
+                return;
+            }
+        } else if (gameMode == GameMode.CHECKERS) {
+            // Логіка перемоги для Шашок
+            if (gameRules.isGameOver(board, currentPlayerColor)) {
+                notifyStatus("Гра закінчена! Перемога " + prevPlayerStr + "!");
+                notifyGameOver(true, previousPlayerColor);
+                return;
+            }
+        }
+
+        // Якщо нічого з вище переліченого не спрацювало, просто оновлюємо статус
+        if (isEnPassant) {
+            notifyStatus("Взяття на проході!");
+        } else {
+            notifyStatus("");
+        }
+    }
+
+    private void recordPosition(boolean irreversible) {
+        // Якщо хід незворотний (пішак або взяття), очищуємо історію, бо повторення вже неможливе
+        if (irreversible) {
+            positionCounts.clear();
+        }
+        String state = generateBoardState(board, turnManager.getCurrentPlayerColor());
+        positionCounts.put(state, positionCounts.getOrDefault(state, 0) + 1);
+    }
+
+    private boolean isThreefoldRepetition() {
+        for (int count : positionCounts.values()) {
+            if (count >= 3) return true;
+        }
+        return false;
+    }
+
+    private String generateBoardState(Board board, Color turnColor) {
+        StringBuilder sb = new StringBuilder();
+        Piece[][] grid = board.getGrid();
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                Piece p = grid[r][c];
+                if (p == null) {
+                    sb.append("1");
+                } else {
+                    char type = p.getType().charAt(0);
+                    if (p.getType().equals("Knight")) type = 'N';
+                    if (p.getColor() == Color.WHITE) type = Character.toUpperCase(type);
+                    else type = Character.toLowerCase(type);
+                    sb.append(type);
+                }
+            }
+        }
+        sb.append(turnColor == Color.WHITE ? "w" : "b");
+        return sb.toString();
+    }
+    // ----------------------------------------------
 
     private String getMoveNotation(int fromRow, int fromColumn, int toRow, int toColumn) {
         Piece piece = board.getPieceAt(fromRow, fromColumn);
@@ -163,18 +263,11 @@ public class GameCoordinator implements GameStateView {
             turnManager.switchTurn();
             Color currentPlayerColor = turnManager.getCurrentPlayerColor();
             Color previousPlayerColor = currentPlayerColor == Color.WHITE ? Color.BLACK : Color.WHITE;
+            String prevPlayerStr = previousPlayerColor == Color.WHITE ? "Білі" : "Чорні";
+            String currPlayerStr = currentPlayerColor == Color.WHITE ? "Білий" : "Чорний";
 
-            if (gameMode == GameMode.CHESS && gameRules.isKingInCheck(board, currentPlayerColor)) {
-                if (gameRules.isGameOver(board, currentPlayerColor)) {
-                    notifyStatus("Шах и мат! " + previousPlayerColor + " победили!");
-                    notifyGameOver(true, previousPlayerColor);
-                } else {
-                    notifyStatus(currentPlayerColor + " король под шахом!");
-                }
-            } else if (gameMode == GameMode.CHECKERS && gameRules.isGameOver(board, currentPlayerColor)) {
-                notifyStatus("Игра окончена! " + previousPlayerColor + " победили!");
-                notifyGameOver(true, previousPlayerColor);
-            }
+            // Перетворення пішака - це незворотний хід
+            checkGameOverAndDraws(currentPlayerColor, previousPlayerColor, currPlayerStr, prevPlayerStr, false, true);
         }
     }
 
@@ -239,6 +332,10 @@ public class GameCoordinator implements GameStateView {
 
     @Override
     public boolean isGameOver() {
+        // Використовуємо наш новий метод для перевірки легальних ходів
+        if (gameMode == GameMode.CHESS && gameRules instanceof ChessRules) {
+            return ((ChessRules) gameRules).isGameOver(board, turnManager.getCurrentPlayerColor());
+        }
         return gameRules.isGameOver(board, turnManager.getCurrentPlayerColor());
     }
 
@@ -257,5 +354,4 @@ public class GameCoordinator implements GameStateView {
     public List<String> getMoveHistory() {
         return new ArrayList<>(moveHistory);
     }
-
 }

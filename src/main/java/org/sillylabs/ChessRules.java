@@ -2,13 +2,8 @@ package org.sillylabs;
 
 import org.sillylabs.pieces.*;
 
-public class ChessRules implements GameRules    {
+public class ChessRules implements GameRules {
     private GameCoordinator coordinator;
-
-//    @Override
-//    public void setGame(GameCoordinator coordinator) {
-//        this.coordinator = coordinator;
-//    }
 
     @Override
     public boolean isValidMove(Board board, int fromRow, int fromColumn, int toRow, int toColumn, boolean isWhiteTurn, boolean isMultiJump) {
@@ -45,12 +40,11 @@ public class ChessRules implements GameRules    {
             return false;
         }
 
-        // ВИПРАВЛЕНО: Перевіряємо абсолютно всі клітинки між королем і турою (від min до max)
         int minCol = Math.min(fromColumn, rookColumn);
         int maxCol = Math.max(fromColumn, rookColumn);
         for (int column = minCol + 1; column < maxCol; column++) {
             if (board.getPieceAt(fromRow, column) != null) {
-                return false; // Знайдено фігуру на шляху!
+                return false;
             }
         }
 
@@ -58,13 +52,12 @@ public class ChessRules implements GameRules    {
             return false;
         }
 
-        // Перевіряємо поля: транзитне (яке король перестрибує) та кінцеве
         int step = isKingside ? 1 : -1;
         if (isSquareAttacked(board, fromRow, fromColumn + step, king.getColor())) {
-            return false; // Рокировка через бите поле
+            return false;
         }
         if (isSquareAttacked(board, fromRow, toColumn, king.getColor())) {
-            return false; // Рокировка під шах
+            return false;
         }
         return true;
     }
@@ -72,54 +65,45 @@ public class ChessRules implements GameRules    {
     boolean leavesKingInCheck(Board board, Piece piece, int fromRow, int fromColumn, int toRow, int toColumn) {
         Piece tempTarget = board.getPieceAt(toRow, toColumn);
 
-        // Симуляція взяття на проході: потрібно тимчасово прибрати ворожого пішака
         Piece enPassantCapturedPiece = null;
         int epRow = -1, epCol = -1;
 
         if (piece instanceof Pawn && Math.abs(toColumn - fromColumn) == 1 && tempTarget == null) {
-            // Білі йдуть вгору (-1), Чорні вниз (+1)
             int direction = piece.getColor() == Color.WHITE ? -1 : 1;
             epRow = toRow - direction;
             epCol = toColumn;
             enPassantCapturedPiece = board.getPieceAt(epRow, epCol);
-            board.setPieceAt(epRow, epCol, null); // Тимчасово видаляємо з дошки
+            board.setPieceAt(epRow, epCol, null);
         }
 
-
         if (piece instanceof King && Math.abs(toColumn - fromColumn) == 2) {
-            // 1. Не можна робити рокировку, якщо король ВЖЕ під шахом (з-під шаху не рокируються)
             if (isKingInCheck(board, piece.getColor())) {
                 return true;
             }
 
-            // 2. Не можна "перестрибувати" через бите поле
             int step = (toColumn > fromColumn) ? 1 : -1;
-            int passColumn = fromColumn + step; // Поле, яке король проходить транзитом
+            int passColumn = fromColumn + step;
 
-            // Симулюємо проміжний крок короля на це транзитне поле
             board.setPieceAt(fromRow, passColumn, piece);
             board.setPieceAt(fromRow, fromColumn, null);
             boolean passCheck = isKingInCheck(board, piece.getColor());
 
-            // Відкочуємо проміжний крок
             board.setPieceAt(fromRow, fromColumn, piece);
             board.setPieceAt(fromRow, passColumn, null);
 
             if (passCheck) {
-                return true; // Якщо проміжне поле під атакою - рокировка заборонена!
+                return true;
             }
         }
-        // ВИПРАВЛЕНО: Робимо уявний хід на РЕАЛЬНІЙ дошці, бо isKingInCheck запитує її
+
         board.setPieceAt(toRow, toColumn, piece);
         board.setPieceAt(fromRow, fromColumn, null);
 
         boolean inCheck = isKingInCheck(board, piece.getColor());
 
-        // Відкочуємо хід назад
         board.setPieceAt(fromRow, fromColumn, piece);
         board.setPieceAt(toRow, toColumn, tempTarget);
 
-        // Відкочуємо з'їденого на проході пішака
         if (enPassantCapturedPiece != null) {
             board.setPieceAt(epRow, epCol, enPassantCapturedPiece);
         }
@@ -143,11 +127,10 @@ public class ChessRules implements GameRules    {
         return king != null && king.isInCheck(grid);
     }
 
-    @Override
-    public boolean isGameOver(Board board, Color color) {
-        if (!isKingInCheck(board, color)) {
-            return false;
-        }
+    // --- НОВІ МЕТОДИ ДЛЯ ПЕРЕВІРКИ СТАНУ ГРИ ---
+
+    // Метод перевіряє, чи є у гравця хоча б один легальний хід
+    public boolean hasLegalMoves(Board board, Color color) {
         boolean isWhiteTurn = color == Color.WHITE;
         Piece[][] grid = board.getGrid();
         for (int fromRow = 0; fromRow < 8; fromRow++) {
@@ -157,15 +140,59 @@ public class ChessRules implements GameRules    {
                     for (int toRow = 0; toRow < 8; toRow++) {
                         for (int toColumn = 0; toColumn < 8; toColumn++) {
                             if (isValidMove(board, fromRow, fromColumn, toRow, toColumn, isWhiteTurn, false)) {
-                                return false;
+                                return true;
                             }
                         }
                     }
                 }
             }
         }
-        return true;
+        return false;
     }
+
+    // Метод перевіряє, чи достатньо матеріалу на дошці для того, щоб поставити мат
+    public boolean isInsufficientMaterial(Board board) {
+        Piece[][] grid = board.getGrid();
+        int whiteKnights = 0, whiteBishops = 0, blackKnights = 0, blackBishops = 0;
+        int otherPieces = 0;
+
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                Piece p = grid[r][c];
+                if (p != null) {
+                    if (p instanceof King) continue;
+                    if (p instanceof Knight) {
+                        if (p.getColor() == Color.WHITE) whiteKnights++; else blackKnights++;
+                    } else if (p instanceof Bishop) {
+                        if (p.getColor() == Color.WHITE) whiteBishops++; else blackBishops++;
+                    } else {
+                        // Пішаки, Тури та Ферзі - це достатній матеріал
+                        otherPieces++;
+                    }
+                }
+            }
+        }
+
+        if (otherPieces > 0) return false;
+
+        int totalWhiteMinors = whiteKnights + whiteBishops;
+        int totalBlackMinors = blackKnights + blackBishops;
+
+        // Тільки Король проти Короля
+        if (totalWhiteMinors == 0 && totalBlackMinors == 0) return true;
+
+        // Король + один Слон/Кінь проти Короля
+        if ((totalWhiteMinors == 1 && totalBlackMinors == 0) || (totalWhiteMinors == 0 && totalBlackMinors == 1)) return true;
+
+        return false;
+    }
+
+    @Override
+    public boolean isGameOver(Board board, Color color) {
+        // Мат ставиться ТІЛЬКИ якщо король ПІД ШАХОМ і у нього НЕМАЄ ХОДІВ
+        return isKingInCheck(board, color) && !hasLegalMoves(board, color);
+    }
+    // ---------------------------------------------
 
     @Override
     public void movePiece(Board board, int fromRow, int fromColumn, int toRow, int toColumn, boolean isMultiJump, int capturedPawnRow, int capturedPawnColumn) {
@@ -188,10 +215,7 @@ public class ChessRules implements GameRules    {
 
         board.setPieceAt(toRow, toColumn, piece);
         board.setPieceAt(fromRow, fromColumn, null);
-
-        // ВИПРАВЛЕНО: Обов'язково оновлюємо внутрішні координати фігури!
         piece.setPosition(toRow, toColumn);
-
         updatePieceMoveStatus(piece);
     }
 
@@ -203,11 +227,11 @@ public class ChessRules implements GameRules    {
 
         board.setPieceAt(toRow, toColumn, king);
         board.setPieceAt(fromRow, fromColumn, null);
-        king.setPosition(toRow, toColumn); // Оновлюємо внутрішні координати
+        king.setPosition(toRow, toColumn);
 
         board.setPieceAt(toRow, rookToColumn, rook);
         board.setPieceAt(fromRow, rookFromColumn, null);
-        rook.setPosition(toRow, rookToColumn); // Оновлюємо внутрішні координати
+        rook.setPosition(toRow, rookToColumn);
 
         System.out.println("Performed " + (isKingside ? "Kingside" : "Queenside") + " castling.");
     }
@@ -229,14 +253,11 @@ public class ChessRules implements GameRules    {
                 Piece attackingPiece = board.getPieceAt(row, column);
                 if (attackingPiece != null && attackingPiece.getColor() == opponentColor) {
                     if (attackingPiece instanceof Pawn) {
-                        // ВИПРАВЛЕНО: Білі б'ють вгору (-1), Чорні б'ють вниз (+1)
-                        // Координати беремо з циклу, щоб гарантувати точність
                         int direction = attackingPiece.getColor() == Color.WHITE ? -1 : 1;
                         if (targetRow == row + direction && (targetColumn == column - 1 || targetColumn == column + 1)) {
                             return true;
                         }
                     } else {
-                        // Більше не ламаємо дошку через tempGrid = null!
                         if (attackingPiece.isValidMove(targetRow, targetColumn, context)) {
                             return true;
                         }
