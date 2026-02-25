@@ -57,27 +57,31 @@ public class CheckersRules implements GameRules {
     @Override
     public boolean isGameOver(Board board, Color color) {
         boolean isWhiteTurn = color == Color.WHITE;
-        boolean hasPieces = false;
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
                 Piece piece = board.getPieceAt(row, col);
+                // Якщо знайшли фігуру поточного гравця
                 if (piece != null && piece.getColor() == color && piece instanceof CheckersPiece) {
-                    hasPieces = true;
+
+                    // Перевіряємо, чи є взяття
                     List<int[]> captureMoves = ((CheckersPiece) piece).getCaptureMoves(row, col, board.getGrid(), GameMode.CHECKERS);
                     if (!captureMoves.isEmpty()) {
-                        return false;
+                        return false; // Є хід, гра триває
                     }
+
+                    // Перевіряємо, чи є звичайні ходи
                     for (int toRow = 0; toRow < 8; toRow++) {
                         for (int toCol = 0; toCol < 8; toCol++) {
                             if (isValidMove(board, row, col, toRow, toCol, isWhiteTurn, false)) {
-                                return false;
+                                return false; // Є хід, гра триває
                             }
                         }
                     }
                 }
             }
         }
-        return hasPieces;
+
+        return true;
     }
 
     @Override

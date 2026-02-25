@@ -91,8 +91,19 @@ public class GameCoordinator implements GameStateView {
         // Перевіряємо, чи є хід "незворотним" (хід пішаком або взяття) для скидання лічильника позицій
         boolean irreversibleMove = false;
         Piece pieceToMove = board.getPieceAt(fromRow, fromColumn);
-        if (pieceToMove instanceof Pawn || board.getPieceAt(toRow, toColumn) != null) {
-            irreversibleMove = true;
+
+        if (gameMode == GameMode.CHESS) {
+            // У шахах незворотний хід: хід пішаком або взяття фігури
+            if (pieceToMove instanceof Pawn || board.getPieceAt(toRow, toColumn) != null) {
+                irreversibleMove = true;
+            }
+        } else if (gameMode == GameMode.CHECKERS) {
+            // У шашках незворотний хід: взяття (стрибок через клітинку) або рух простої шашки (бо вона йде тільки вперед)
+            if (Math.abs(toRow - fromRow) >= 2) {
+                irreversibleMove = true; // Це було взяття
+            } else if (pieceToMove instanceof CheckersPiece && !((CheckersPiece) pieceToMove).isKing()) {
+                irreversibleMove = true; // Це хід простою шашкою
+            }
         }
 
         long moveEndTime = System.currentTimeMillis();
@@ -217,6 +228,12 @@ public class GameCoordinator implements GameStateView {
                 } else {
                     char type = p.getType().charAt(0);
                     if (p.getType().equals("Knight")) type = 'N';
+
+                    // НОВИЙ РЯДОК: Якщо це шашка і вона дамка, позначаємо її як 'K' (King)
+                    if (p instanceof CheckersPiece && ((CheckersPiece) p).isKing()) {
+                        type = 'K';
+                    }
+
                     if (p.getColor() == Color.WHITE) type = Character.toUpperCase(type);
                     else type = Character.toLowerCase(type);
                     sb.append(type);
