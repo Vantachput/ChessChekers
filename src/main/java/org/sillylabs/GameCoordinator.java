@@ -8,9 +8,9 @@ import java.util.Map;
 
 public class GameCoordinator implements GameStateView {
     private final Board board;
-    private final TurnManager turnManager;
-    private final SpecialMoveHandler specialMoveHandler;
-    private final PromotionHandler promotionHandler;
+    private TurnManager turnManager;
+    private SpecialMoveHandler specialMoveHandler;
+    private PromotionHandler promotionHandler;
     private GameMode gameMode;
     private GameRules gameRules;
     private final List<String> moveHistory;
@@ -39,6 +39,11 @@ public class GameCoordinator implements GameStateView {
 
     public void start(GameMode mode) {
         this.gameMode = mode;
+
+        this.turnManager = new TurnManager();
+        this.specialMoveHandler = new SpecialMoveHandler();
+        this.promotionHandler = new PromotionHandler();
+
         board.setupBoard(mode);
         moveHistory.clear();
         positionCounts.clear(); // Очищуємо історію позицій при старті
@@ -109,8 +114,7 @@ public class GameCoordinator implements GameStateView {
         gameRules.movePiece(board, fromRow, fromColumn, toRow, toColumn, specialMoveHandler.isMultiJump(), capturedPawnRow, capturedPawnColumn);
         specialMoveHandler.updateEnPassant(board, fromRow, toRow, toColumn);
         Piece movedPiece = board.getPieceAt(toRow, toColumn);
-        specialMoveHandler.updateMultiJump(board, movedPiece, toRow, toColumn, gameMode, this);
-
+        specialMoveHandler.updateMultiJump(board, movedPiece, fromRow, fromColumn, toRow, toColumn, gameMode, this);
         if (!specialMoveHandler.isMultiJump()) {
             promotionHandler.requestPromotion(board, toRow, toColumn, turnManager.getCurrentPlayerColor(), this);
         }

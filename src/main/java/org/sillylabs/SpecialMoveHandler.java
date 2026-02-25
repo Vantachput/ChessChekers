@@ -24,8 +24,6 @@ public class SpecialMoveHandler {
         return piece instanceof King && Math.abs(fromColumn - toColumn) == 2;
     }
 
-    // Цей метод потрібно викликати в GameCoordinator ПІСЛЯ того, як перемістився король
-
     public boolean isMultiJump() {
         return isMultiJump;
     }
@@ -57,7 +55,6 @@ public class SpecialMoveHandler {
     }
 
     public void updateEnPassant(Board board, int fromRow, int toRow, int toColumn) {
-        // ВИПРАВЛЕНО: беремо фігуру з НОВОЇ клітинки (toRow), а не з fromRow
         Piece piece = board.getPieceAt(toRow, toColumn);
         enPassantPossible = false;
         enPassantTargetRow = -1;
@@ -70,16 +67,17 @@ public class SpecialMoveHandler {
         }
     }
 
-    public void updateMultiJump(Board board, Piece piece, int toRow, int toColumn, GameMode gameMode, GameCoordinator coordinator) {
+    // ВАЖЛИВО: додано fromRow та fromColumn
+    public void updateMultiJump(Board board, Piece piece, int fromRow, int fromColumn, int toRow, int toColumn, GameMode gameMode, GameCoordinator coordinator) {
         if (gameMode == GameMode.CHECKERS && piece instanceof CheckersPiece checkersPiece) {
-            boolean isCaptureMove = Math.abs(toRow - piece.getRow()) >= 2 && Math.abs(toColumn - piece.getColumn()) >= 2;
+            boolean isCaptureMove = Math.abs(toRow - fromRow) >= 2 && Math.abs(toColumn - fromColumn) >= 2;
             if (isCaptureMove) {
                 List<int[]> furtherCaptures = checkersPiece.getCaptureMoves(toRow, toColumn, board.getGrid(), gameMode);
                 if (!furtherCaptures.isEmpty()) {
                     isMultiJump = true;
                     multiJumpFromRow = toRow;
                     multiJumpFromColumn = toColumn;
-                    coordinator.notifyStatus("Доступны дополнительные взятия! Выберите ход или подтвердите окончание.");
+                    coordinator.notifyStatus("Доступні додаткові взяття! Продовжуйте хід або натисніть на цю ж фігуру для завершення.");
                     coordinator.notifyBoardChanged();
                 } else {
                     resetMultiJump();

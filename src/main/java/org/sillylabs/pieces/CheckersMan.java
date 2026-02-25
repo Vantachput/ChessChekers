@@ -72,15 +72,14 @@ public class CheckersMan extends CheckersPiece {
         }
 
         if (isMultiJump) {
-            boolean isCapture = isCapture(toRow, toColumn, grid);
-            System.out.println("MultiJump mode active - capture move: " + isCapture);
-            return isCapture;
+            return isCapture(toRow, toColumn, grid);
         }
 
         MoveContext context = new MoveContext(grid, -1, -1, false);
         return isValidMove(toRow, toColumn, context);
     }
 
+    @Override
     protected boolean isCapture(int toRow, int toColumn, Piece[][] grid) {
         int dRow = toRow - row;
         int dColumn = toColumn - column;
@@ -97,23 +96,17 @@ public class CheckersMan extends CheckersPiece {
                         grid[midRow][midColumn] != null && grid[midRow][midColumn].getColor() != color;
             }
         } else {
-            boolean foundOpponent = false;
             int opponentCount = 0;
             for (int i = 1; i < absDRow; i++) {
                 int checkRow = row + i * stepRow;
                 int checkColumn = column + i * stepColumn;
-                if (checkRow < 0 || checkRow >= 8 || checkColumn < 0 || checkColumn >= 8) {
-                    break;
-                }
-                if (grid[checkRow][checkColumn] != null) {
-                    if (grid[checkRow][checkColumn].getColor() == color) {
-                        break;
-                    }
+                Piece p = grid[checkRow][checkColumn];
+                if (p != null) {
+                    if (p.getColor() == color) return false; // Заблоковано власною фігурою
                     opponentCount++;
-                    foundOpponent = true;
                 }
             }
-            return foundOpponent && opponentCount == 1;
+            return opponentCount == 1; // Повинна бути рівно одна ворожа фігура на шляху
         }
         return false;
     }
@@ -125,7 +118,7 @@ public class CheckersMan extends CheckersPiece {
 
         if (!isKing) {
             int[][] directions = {
-                    {direction, -1}, {direction, 1}
+                    {-1, -1}, {-1, 1}, {1, -1}, {1, 1}
             };
             for (int[] dir : directions) {
                 int midRow = fromRow + dir[0];
@@ -139,28 +132,29 @@ public class CheckersMan extends CheckersPiece {
                 }
             }
         } else {
+            // ЛОГІКА ДЛЯ ДАМКИ
             int[][] directions = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
             for (int[] dir : directions) {
-                for (int i = 1; i < 7; i++) {
-                    int midRow = fromRow + i * dir[0];
-                    int midColumn = fromColumn + i * dir[1];
-                    int toRow = fromRow + (i + 1) * dir[0];
-                    int toColumn = fromColumn + (i + 1) * dir[1];
-                    if (toRow < 0 || toRow >= 8 || toColumn < 0 || toColumn >= 8) break;
-                    if (grid[toRow][toColumn] != null) break;
-                    if (midRow >= 0 && midRow < 8 && midColumn >= 0 && midColumn < 8 &&
-                            grid[midRow][midColumn] != null && grid[midRow][midColumn].getColor() != color) {
-                        boolean valid = true;
-                        for (int j = 1; j < i; j++) {
-                            int checkRow = fromRow + j * dir[0];
-                            int checkColumn = fromColumn + j * dir[1];
-                            if (grid[checkRow][checkColumn] != null) {
-                                valid = false;
-                                break;
+                boolean opponentFound = false;
+                for (int i = 1; i < 8; i++) {
+                    int checkRow = fromRow + i * dir[0];
+                    int checkColumn = fromColumn + i * dir[1];
+                    if (checkRow < 0 || checkRow >= 8 || checkColumn < 0 || checkColumn >= 8) break;
+
+                    Piece p = grid[checkRow][checkColumn];
+                    if (!opponentFound) {
+                        if (p != null) {
+                            if (p.getColor() == color) {
+                                break; // Наткнулися на свою фігуру
+                            } else {
+                                opponentFound = true; // Знайшли ворога, далі шукаємо пусті клітинки для посадки
                             }
                         }
-                        if (valid) {
-                            captureMoves.add(new int[]{toRow, toColumn});
+                    } else {
+                        if (p != null) {
+                            break; // Не можна стрибати через дві фігури підряд
+                        } else {
+                            captureMoves.add(new int[]{checkRow, checkColumn}); // Це можлива клітинка для приземлення
                         }
                     }
                 }
@@ -173,3 +167,4 @@ public class CheckersMan extends CheckersPiece {
         return true; // All pieces are valid capture targets in CHECKERS mode
     }
 }
+

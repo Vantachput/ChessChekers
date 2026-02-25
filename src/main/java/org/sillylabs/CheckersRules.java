@@ -94,6 +94,9 @@ public class CheckersRules implements GameRules {
             board.setPieceAt(toRow, toColumn, piece);
             board.setPieceAt(fromRow, fromColumn, null);
         }
+
+        // ВАЖЛИВО: Оновлюємо координати фігури після ходу!
+        piece.setPosition(toRow, toColumn);
     }
 
     private void executeCheckersCapture(Board board, int fromRow, int fromColumn, int toRow, int toColumn, Piece piece) {
@@ -111,6 +114,7 @@ public class CheckersRules implements GameRules {
         board.setPieceAt(toRow, toColumn, piece);
         board.setPieceAt(fromRow, fromColumn, null);
     }
+
     @Override
     public void setGameCoordinator(GameCoordinator coordinator) {
         this.coordinator = coordinator;

@@ -29,7 +29,7 @@ public abstract class CheckersPiece extends Piece {
                 return isCapture(toRow, toColumn, grid);
             }
         }
-        MoveContext context = new MoveContext(grid, -1, -1, false); // En passant not used for checkers
+        MoveContext context = new MoveContext(grid, -1, -1, false);
         return isValidMove(toRow, toColumn, context);
     }
 
@@ -54,24 +54,17 @@ public abstract class CheckersPiece extends Piece {
                         grid[midRow][midColumn] != null && grid[midRow][midColumn].getColor() != color;
             }
         } else {
-            boolean foundOpponent = false;
             int opponentCount = 0;
-
             for (int i = 1; i < absDRow; i++) {
                 int checkRow = row + i * stepRow;
                 int checkColumn = column + i * stepColumn;
-                if (checkRow < 0 || checkRow >= 8 || checkColumn < 0 || checkColumn >= 8) {
-                    break;
-                }
-                if (grid[checkRow][checkColumn] != null) {
-                    if (grid[checkRow][checkColumn].getColor() == color) {
-                        break;
-                    }
+                Piece p = grid[checkRow][checkColumn];
+                if (p != null) {
+                    if (p.getColor() == color) return false;
                     opponentCount++;
-                    foundOpponent = true;
                 }
             }
-            return foundOpponent && opponentCount == 1;
+            return opponentCount == 1;
         }
         return false;
     }
