@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import javafx.scene.control.Alert;
 
-
 public class GameGUI implements GameObserver {
     private final GameCoordinator coordinator;
     private final Stage primaryStage;
@@ -38,6 +37,11 @@ public class GameGUI implements GameObserver {
     private boolean gameOver = false;
     private TextArea whiteMovesArea;
     private TextArea blackMovesArea;
+
+    // --- НОВЕ: Прапорець для перевірки режиму гри (Проти ШІ чи 2 гравця) ---
+    private boolean playAgainstAI = false;
+
+    private StockfishEngine stockfishEngine;
 
     private static final String LIGHT_SQUARE = "#F0D9B5";
     private static final String DARK_SQUARE = "#B58863";
@@ -83,6 +87,16 @@ public class GameGUI implements GameObserver {
         coordinator.addObserver(this);
         primaryStage.setWidth(1000);
         primaryStage.setHeight(800);
+
+        this.stockfishEngine = new StockfishEngine();
+        this.stockfishEngine.startEngine();
+
+        this.primaryStage.setOnCloseRequest(event -> {
+            if (stockfishEngine != null) {
+                stockfishEngine.stopEngine();
+            }
+        });
+
         setupGUI();
     }
 
@@ -111,6 +125,7 @@ public class GameGUI implements GameObserver {
                 padding
         ));
 
+        // Вибір гри
         ComboBox<GameMode> modeSelector = new ComboBox<>();
         modeSelector.getItems().addAll(GameMode.CHESS, GameMode.CHECKERS);
         modeSelector.setValue(GameMode.CHESS);
@@ -118,6 +133,26 @@ public class GameGUI implements GameObserver {
                 () -> "-fx-font-size: " + Math.max(12, padding.get() * 1.4) + "px;",
                 padding
         ));
+
+        // --- НОВЕ: Вибір суперника ---
+        ComboBox<String> opponentSelector = new ComboBox<>();
+        opponentSelector.getItems().addAll("2 гравця", "Проти ШІ");
+        opponentSelector.setValue("2 гравця"); // За замовчуванням 2 гравця
+        opponentSelector.styleProperty().bind(Bindings.createStringBinding(
+                () -> "-fx-font-size: " + Math.max(12, padding.get() * 1.4) + "px;",
+                padding
+        ));
+
+        // Блокуємо ШІ, якщо обрано Шашки
+        modeSelector.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == GameMode.CHECKERS) {
+                opponentSelector.setValue("2 гравця");
+                opponentSelector.setDisable(true); // Stockfish грає тільки в шахи
+            } else {
+                opponentSelector.setDisable(false);
+            }
+        });
+        // ------------------------------
 
         Button startButton = new Button("Почати гру");
         startButton.styleProperty().bind(Bindings.createStringBinding(
@@ -134,20 +169,26 @@ public class GameGUI implements GameObserver {
                 padding
         ));
         startButton.setOnAction(e -> {
+            // Зберігаємо вибір користувача
+            playAgainstAI = opponentSelector.getValue().equals("Проти ШІ");
+
             gameOver = false;
             setupBoard();
             coordinator.start(modeSelector.getValue());
             primaryStage.setScene(scene);
+
+            triggerBotMoveIfNeeded();
         });
 
-        Label instruction = new Label("Виберіть режим гри та натисніть 'Почати гру'");
+        Label instruction = new Label("Виберіть режим, суперника та натисніть 'Почати гру'");
         instruction.setStyle("-fx-text-fill: white;");
         instruction.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Arial", Math.max(12, padding.get() * 1.4)),
                 padding
         ));
 
-        root.getChildren().addAll(title, instruction, modeSelector, startButton);
+        // Додали opponentSelector у контейнер
+        root.getChildren().addAll(title, instruction, modeSelector, opponentSelector, startButton);
 
         Scene startScene = new Scene(root);
         primaryStage.setScene(startScene);
@@ -203,12 +244,10 @@ public class GameGUI implements GameObserver {
         whiteMovesArea.setEditable(false);
         whiteMovesArea.setStyle("-fx-background-color: #ECF0F1; -fx-text-fill: black;");
         whiteMovesArea.prefHeightProperty().bind(primaryStage.heightProperty().multiply(0.4));
-        // Робимо шрифт меншим та моноширинним
         whiteMovesArea.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Monospaced", Math.max(10, padding.get() * 0.9)),
                 padding
         ));
-        // Додаємо автопрокрутку до останнього ходу
         whiteMovesArea.textProperty().addListener((observable, oldValue, newValue) -> {
             whiteMovesArea.setScrollTop(Double.MAX_VALUE);
         });
@@ -224,12 +263,10 @@ public class GameGUI implements GameObserver {
         blackMovesArea.setEditable(false);
         blackMovesArea.setStyle("-fx-background-color: #ECF0F1; -fx-text-fill: black;");
         blackMovesArea.prefHeightProperty().bind(primaryStage.heightProperty().multiply(0.4));
-        // Робимо шрифт меншим та моноширинним
         blackMovesArea.fontProperty().bind(Bindings.createObjectBinding(
                 () -> Font.font("Monospaced", Math.max(10, padding.get() * 0.9)),
                 padding
         ));
-        // Додаємо автопрокрутку до останнього ходу
         blackMovesArea.textProperty().addListener((observable, oldValue, newValue) -> {
             blackMovesArea.setScrollTop(Double.MAX_VALUE);
         });
@@ -279,7 +316,6 @@ public class GameGUI implements GameObserver {
         Button resignButton = new Button("Здатися");
         Button mainMenuButton = new Button("Головне меню");
 
-        // Загальний стиль для кнопок, щоб вони масштабувалися разом з вікном
         javafx.beans.binding.StringBinding buttonStyle = Bindings.createStringBinding(
                 () -> String.format(
                         "-fx-font-size: %.1fpx; -fx-text-fill: white; -fx-background-radius: 5px; -fx-padding: %.1fpx %.1fpx; -fx-cursor: hand;",
@@ -290,48 +326,42 @@ public class GameGUI implements GameObserver {
                 squareSize
         );
 
-        // Надаємо різні кольори кнопкам
         drawButton.styleProperty().bind(Bindings.concat("-fx-background-color: #F39C12; ", buttonStyle));
         resignButton.styleProperty().bind(Bindings.concat("-fx-background-color: #E74C3C; ", buttonStyle));
         mainMenuButton.styleProperty().bind(Bindings.concat("-fx-background-color: #3498DB; ", buttonStyle));
 
-        // Логіка кнопки "Нічия"
         drawButton.setOnAction(e -> {
             if (!gameOver) {
                 gameOver = true;
                 selectedRow = -1;
                 selectedColumn = -1;
-                onGameOver(true, null); // Передача null викличе Нічию в нашому вікні Alert
+                onGameOver(true, null);
             }
         });
 
-        // Логіка кнопки "Здатися"
         resignButton.setOnAction(e -> {
             if (!gameOver) {
                 gameOver = true;
                 selectedRow = -1;
                 selectedColumn = -1;
-                // Якщо хід білих, і вони здаються - перемагають чорні, і навпаки
                 Color winner = coordinator.isWhiteTurn() ? Color.BLACK : Color.WHITE;
                 onGameOver(true, winner);
             }
         });
 
-        // Логіка кнопки "Головне меню"
         mainMenuButton.setOnAction(e -> {
             gameOver = true;
             selectedRow = -1;
             selectedColumn = -1;
-            setupGUI(); // Перемальовує інтерфейс і повертає на стартовий екран
+            setupGUI();
         });
 
-        // Спеціальна "розпірка" (spacer), яка буде відштовхувати Головне меню вправо
         javafx.scene.layout.Region spacer = new javafx.scene.layout.Region();
         javafx.scene.layout.HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
 
-        HBox buttonBox = new HBox(10); // 10 пікселів відстань між кнопками зліва
+        HBox buttonBox = new HBox(10);
         buttonBox.setAlignment(Pos.CENTER_LEFT);
-        buttonBox.setPadding(new Insets(10, 0, 0, 0)); // Відступ зверху від ігрової дошки
+        buttonBox.setPadding(new Insets(10, 0, 0, 0));
         buttonBox.getChildren().addAll(drawButton, resignButton, spacer, mainMenuButton);
 
         GridPane.setColumnSpan(buttonBox, 8);
@@ -365,7 +395,9 @@ public class GameGUI implements GameObserver {
     }
 
     private void handleClick(int row, int column) {
-        if (gameOver || coordinator.isWaitingForPromotion()) {
+        // --- НОВЕ: Забороняємо кліки, тільки якщо зараз хід бота І увімкнено режим Проти ШІ ---
+        if (gameOver || coordinator.isWaitingForPromotion() ||
+                (playAgainstAI && !coordinator.isWhiteTurn() && coordinator.getGameMode() == GameMode.CHESS)) {
             return;
         }
 
@@ -394,6 +426,9 @@ public class GameGUI implements GameObserver {
                     updateBoardDisplay();
                     updateTurnLabel();
                     updateMoveHistory();
+
+                    triggerBotMoveIfNeeded();
+
                 } else if (moveMade && coordinator.isMultiJump()) {
                     selectedRow = row;
                     selectedColumn = column;
@@ -476,7 +511,12 @@ public class GameGUI implements GameObserver {
 
     @Override
     public void onPromotionRequested(int row, int column, Color color) {
-        showPromotionDialog(row, column, color);
+        // Якщо грає бот - перетворює автоматично
+        if (playAgainstAI && color == Color.BLACK && coordinator.getGameMode() == GameMode.CHESS) {
+            // Діалог не показуємо, обробка перетворення виконується у triggerBotMoveIfNeeded
+        } else {
+            showPromotionDialog(row, column, color);
+        }
     }
 
     @Override
@@ -487,7 +527,6 @@ public class GameGUI implements GameObserver {
             String headerText;
 
             if (winner == null) {
-                // Якщо winner == null, значить це Нічия
                 headerText = "Нічия!";
                 statusLabel.setText("Гра закінчена: Нічия!");
             } else {
@@ -496,11 +535,10 @@ public class GameGUI implements GameObserver {
                 statusLabel.setText("Гра закінчена: Перемога " + winnerText + "!");
             }
 
-            // Показуємо спливаюче вікно
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle(title);
             alert.setHeaderText(headerText);
-            alert.setContentText("Щоб почати нову гру, змініть режим та натисніть 'Почати гру'.");
+            alert.setContentText("Щоб почати нову гру, натисніть 'Головне меню'.");
             alert.showAndWait();
         }
     }
@@ -628,11 +666,99 @@ public class GameGUI implements GameObserver {
             };
             coordinator.completePawnPromotion(englishPieceType);
             dialog.close();
+
+            triggerBotMoveIfNeeded();
         });
 
         dialogVbox.getChildren().addAll(label, pieceSelector, confirmButton);
         Scene dialogScene = new Scene(dialogVbox, 250, 150);
         dialog.setScene(dialogScene);
         dialog.show();
+    }
+
+    private void triggerBotMoveIfNeeded() {
+        // --- НОВЕ: Перевіряємо змінну playAgainstAI ---
+        if (playAgainstAI && !gameOver && !coordinator.isWhiteTurn() && coordinator.getGameMode() == GameMode.CHESS) {
+
+            new Thread(() -> {
+                String fen = generateFEN(coordinator.getBoardState(), coordinator.isWhiteTurn());
+                String bestMove = stockfishEngine.getBestMove(fen, 500);
+
+                if (bestMove != null && bestMove.length() >= 4) {
+                    int fromCol = bestMove.charAt(0) - 'a';
+                    int fromRow = 8 - Character.getNumericValue(bestMove.charAt(1));
+                    int toCol = bestMove.charAt(2) - 'a';
+                    int toRow = 8 - Character.getNumericValue(bestMove.charAt(3));
+
+                    String promotionPiece = bestMove.length() > 4 ? String.valueOf(bestMove.charAt(4)) : null;
+
+                    javafx.application.Platform.runLater(() -> {
+                        boolean botMoveMade = coordinator.makeMove(fromRow, fromCol, toRow, toCol);
+
+                        if (botMoveMade && coordinator.isWaitingForPromotion()) {
+                            String pieceName = "Queen";
+                            if (promotionPiece != null) {
+                                switch (promotionPiece) {
+                                    case "r": pieceName = "Rook"; break;
+                                    case "b": pieceName = "Bishop"; break;
+                                    case "n": pieceName = "Knight"; break;
+                                    case "q": pieceName = "Queen"; break;
+                                }
+                            }
+                            coordinator.completePawnPromotion(pieceName);
+                        }
+
+                        updateBoardDisplay();
+                        updateTurnLabel();
+                        updateMoveHistory();
+                    });
+                }
+            }).start();
+        }
+    }
+
+    private String generateFEN(Piece[][] board, boolean isWhiteTurn) {
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int emptySquares = 0;
+            for (int col = 0; col < 8; col++) {
+                Piece p = board[row][col];
+                if (p == null) {
+                    emptySquares++;
+                } else {
+                    if (emptySquares > 0) {
+                        fen.append(emptySquares);
+                        emptySquares = 0;
+                    }
+                    char pieceChar = getPieceChar(p);
+                    if (p.getColor() == Color.WHITE) {
+                        fen.append(Character.toUpperCase(pieceChar));
+                    } else {
+                        fen.append(Character.toLowerCase(pieceChar));
+                    }
+                }
+            }
+            if (emptySquares > 0) {
+                fen.append(emptySquares);
+            }
+            if (row < 7) {
+                fen.append("/");
+            }
+        }
+        fen.append(isWhiteTurn ? " w" : " b").append(" - - 0 1");
+        return fen.toString();
+    }
+
+    private char getPieceChar(Piece p) {
+        String name = p.getType();
+        return switch (name) {
+            case "Pawn" -> 'p';
+            case "Knight" -> 'n';
+            case "Bishop" -> 'b';
+            case "Rook" -> 'r';
+            case "Queen" -> 'q';
+            case "King" -> 'k';
+            default -> 'p';
+        };
     }
 }

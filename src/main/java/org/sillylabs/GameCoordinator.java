@@ -61,6 +61,54 @@ public class GameCoordinator implements GameStateView {
         notifyStatus("");
     }
 
+    public String generateFEN(Piece[][] board, boolean isWhiteTurn) {
+        StringBuilder fen = new StringBuilder();
+        for (int row = 0; row < 8; row++) {
+            int emptySquares = 0;
+            for (int col = 0; col < 8; col++) {
+                Piece p = board[row][col];
+                if (p == null) {
+                    emptySquares++;
+                } else {
+                    if (emptySquares > 0) {
+                        fen.append(emptySquares);
+                        emptySquares = 0;
+                    }
+                    char pieceChar = getPieceChar(p);
+                    // Білі фігури з великої літери, чорні - з маленької
+                    if (p.getColor() == org.sillylabs.pieces.Color.WHITE) {
+                        fen.append(Character.toUpperCase(pieceChar));
+                    } else {
+                        fen.append(Character.toLowerCase(pieceChar));
+                    }
+                }
+            }
+            if (emptySquares > 0) {
+                fen.append(emptySquares);
+            }
+            if (row < 7) {
+                fen.append("/");
+            }
+        }
+
+        // Додаємо чий хід. Для базової версії опускаємо рокіровку та взяття на проході (додаємо " - - 0 1")
+        fen.append(isWhiteTurn ? " w" : " b").append(" - - 0 1");
+        return fen.toString();
+    }
+
+    private char getPieceChar(Piece p) {
+        String name = p.getClass().getSimpleName();
+        switch (name) {
+            case "Pawn": return 'p';
+            case "Knight": return 'n';
+            case "Bishop": return 'b';
+            case "Rook": return 'r';
+            case "Queen": return 'q';
+            case "King": return 'k';
+            default: return 'p';
+        }
+    }
+
     public boolean isValidMove(int fromRow, int fromColumn, int toRow, int toColumn) {
         return gameRules.isValidMove(board, fromRow, fromColumn, toRow, toColumn, turnManager.isWhiteTurn(), specialMoveHandler.isMultiJump());
     }
